@@ -14,26 +14,26 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build: ./backend
+    build: ./web-app/backend
     restart: unless-stopped
     depends_on:
       - db
     env_file:
-      - ./backend/.env
+      - ./web-app/backend/.env
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./web-app/backend:/app
 
   frontend:
-    build: ./frontend
+    build: ./web-app/frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./web-app/frontend:/app
       - /app/node_modules
 
 volumes:
