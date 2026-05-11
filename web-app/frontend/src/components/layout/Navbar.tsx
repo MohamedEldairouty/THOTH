@@ -20,8 +20,11 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-gem-navy/90 backdrop-blur border-b border-gem-gold/20">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="font-display text-gem-gold text-xl font-bold tracking-widest">
-          𓅓 THOTH
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/assets/logo.png" alt="THOTH" className="h-8 w-auto" />
+          <span className="font-display text-gem-gold text-xl font-bold tracking-widest hidden sm:block">
+            THOTH
+          </span>
         </Link>
 
         {/* Nav links */}

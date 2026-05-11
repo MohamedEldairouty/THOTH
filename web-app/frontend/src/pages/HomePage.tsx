@@ -33,25 +33,39 @@ export default function HomePage() {
   const t = COPY[lang]
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center overflow-hidden px-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-gem-gradient opacity-80 pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gem-gold/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center overflow-hidden">
+
+      {/* GEM wallpaper */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/assets/gem_wallpaper.jpg)' }}
+      />
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-gem-navy/72" />
+      {/* Bottom fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-gem-navy to-transparent" />
 
       {/* Hieroglyph strip */}
-      <div className="relative z-10 mb-8 text-gem-gold/30 text-4xl tracking-widest select-none">
+      <div className="relative z-10 mb-6 text-gem-gold/30 text-3xl tracking-widest select-none">
         𓃀 𓇋 𓏏 𓄂 𓅓 𓏏 𓃀 𓇋 𓏏
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 text-center max-w-3xl animate-fade-in">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gem-gold/10 border border-gem-gold/40 flex items-center justify-center text-4xl">
-          𓅓
+      <div className="relative z-10 text-center max-w-3xl px-6 animate-fade-in">
+
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img
+            src="/assets/logo.png"
+            alt="THOTH Logo"
+            className="h-24 w-auto drop-shadow-[0_0_24px_rgba(201,168,76,0.6)]"
+          />
         </div>
-        <h1 className="font-display text-gem-gold text-3xl md:text-5xl font-bold mb-4 tracking-wider">
+
+        <h1 className="font-display text-gem-gold text-3xl md:text-5xl font-bold mb-4 tracking-wider drop-shadow-lg">
           {t.greeting}
         </h1>
-        <p className="text-gem-muted text-lg md:text-xl mb-10 leading-relaxed">
+        <p className="text-gem-text/90 text-lg md:text-xl mb-10 leading-relaxed">
           {t.subtitle}
         </p>
 
