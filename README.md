@@ -10,7 +10,8 @@
 
 ---
 
-> 📑 Smart Interactive Museum Guide designed for the Grand Egyptian Museum
+> 🏛️ Smart Interactive Museum Guide designed for the Grand Egyptian Museum
+> 🎓 [View Graduation Project 1 Final Presentation](docs/THOTH_Grad1_Final_Presentation.pdf)  
 
 ---
 
@@ -121,7 +122,7 @@ THOTH aims to provide visitors with a futuristic museum experience where they ca
 # 📂 Repository Structure
 
 ```txt
-thoth-smart-museum-guide/
+THOTH/
 │
 ├── web-app/           # Full-stack touchscreen web application
 │   ├── frontend/      #   React + TypeScript UI
@@ -201,14 +202,14 @@ The database supports:
 
 # 👥 Team Members
 
-| Member                                       | Role                                      |
-| -------------------------------------------- | ----------------------------------------- |
-| **Mohamed Abdallah Eldairouty** — 221001719  | 🌐 Full-Stack Web Application             |
-| **Leena Gouda** — 221001719                  | 🧠 AI / LLM / Voice Interaction           |
-| **Nayrouz Ahmed** — 221011969                | 😀 Emotion Recognition & Image Processing |
-| **Saged Khaled** — 221001150                 | 👤 Age Recognition & Image Processing     |
-| **Youssef Waleed** — 221000928               | ⚡ Hardware Integration & Navigation       |
-| **Habiba Ghoneim** — 221000287               | 🗺️ Simulation & Navigation               |
+| Member | Role |
+|---|---|
+| **[@Mohamed Abdallah Eldairouty](https://github.com/MohamedEldairouty)** — 221001719 | 🌐 Full-Stack Web Application |
+| **Leena Gouda** — 221001719 | 🧠 AI / LLM / Voice Interaction |
+| **Nayrouz Ahmed** — 221011969 | 😀 Emotion Recognition & Image Processing |
+| **[@Saged Khaled](https://github.com/sagedkhaled263)** — 221001150 | 👤 Age Recognition & Image Processing |
+| **[@Youssef Waleed](https://github.com/Youssefwaleed2005)** — 221000928 | ⚡ Hardware Integration & Navigation |
+| **[@Habiba Ghoneim](https://github.com/HabibaGhoneim)** — 221000287 | 🗺️ Simulation & Navigation |
 
 ---
 
