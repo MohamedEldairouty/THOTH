@@ -207,7 +207,7 @@ The database supports:
 | **Leena Gouda** — 221001719                  | 🧠 AI / LLM / Voice Interaction           |
 | **Nayrouz Ahmed** — 221011969                | 😀 Emotion Recognition & Image Processing |
 | **Saged Khaled** — 221001150                 | 👤 Age Recognition & Image Processing     |
-| **Youssef Waleed** — 221000928               | ⚡ DC Motors & Hardware Integration        |
+| **Youssef Waleed** — 221000928               | ⚡ Hardware Integration & Navigation       |
 | **Habiba Ghoneim** — 221000287               | 🗺️ Simulation & Navigation               |
 
 ---
