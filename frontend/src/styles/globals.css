@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-gem-navy text-gem-text;
+    font-family: 'Inter', sans-serif;
+  }
+
+  body {
+    @apply min-h-screen antialiased;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-gem-dark; }
+  ::-webkit-scrollbar-thumb { @apply bg-gem-gold-dim rounded-full; }
+}
+
+@layer components {
+  .gem-card {
+    @apply bg-gem-card border border-gem-gold/20 rounded-2xl backdrop-blur-sm;
+  }
+
+  .gem-btn-primary {
+    @apply bg-gem-gold hover:bg-gem-gold-light text-gem-navy font-semibold
+           px-6 py-3 rounded-xl transition-all duration-300
+           active:scale-95 touch-manipulation;
+  }
+
+  .gem-btn-ghost {
+    @apply border border-gem-gold/50 hover:border-gem-gold text-gem-gold
+           px-6 py-3 rounded-xl transition-all duration-300 hover:bg-gem-gold/10
+           active:scale-95 touch-manipulation;
+  }
+
+  .gem-input {
+    @apply bg-gem-dark border border-gem-gold/30 focus:border-gem-gold
+           text-gem-text placeholder-gem-muted rounded-xl px-4 py-3
+           outline-none transition-colors w-full;
+  }
+
+  .gem-section-title {
+    @apply font-display text-gem-gold text-2xl md:text-3xl font-semibold tracking-wider;
+  }
+
+  /* Egyptian divider */
+  .gem-divider {
+    @apply flex items-center gap-4 my-6;
+  }
+  .gem-divider::before,
+  .gem-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-gem-gold/30;
+  }
+}

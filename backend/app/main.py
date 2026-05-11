@@ -1,0 +1,32 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.routers import exhibits, categories, halls, chat, map, robot, navigation
+
+app = FastAPI(
+    title="THOTH Smart Museum Guide API",
+    description="Backend API for the Grand Egyptian Museum smart guide system.",
+    version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(exhibits.router, prefix="/api/exhibits", tags=["Exhibits"])
+app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
+app.include_router(halls.router, prefix="/api/halls", tags=["Halls"])
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(map.router, prefix="/api/map", tags=["Map"])
+app.include_router(robot.router, prefix="/api/robot", tags=["Robot"])
+app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
+
+
+@app.get("/", tags=["Health"])
+def root():
+    return {"status": "ok", "service": "THOTH Museum API"}
