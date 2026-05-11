@@ -1,17 +1,20 @@
 <p align="center">
   <img src="assets/logo.png" alt="THOTH Logo" width="220"/>
 </p>
+
 <h1 align="center">🏛️ THOTH — Smart Museum Guide Robot</h1>
+
 <p align="center">
   🤖 Autonomous Robot • 🧠 AI Assistant • 🗺 Interactive Museum Navigation • 🌍 Multilingual Experience
   <br/>
   🎓 <em>Graduation Project — Computer Engineering Department</em>
+  <br/>
+  📄 <a href="docs/THOTH_Grad1_Final_Presentation.pdf">View Graduation Project 1 Final Presentation</a>
 </p>
 
 ---
 
 > 🏛️ Smart Interactive Museum Guide designed for the Grand Egyptian Museum
-> 🎓 [View Graduation Project 1 Final Presentation](docs/THOTH_Grad1_Final_Presentation.pdf)  
 
 ---
 
