@@ -9,7 +9,7 @@
   <br/>
   🎓 <em>Graduation Project — Computer Engineering Department</em>
   <br/>
-  📄 <a href="docs/THOTH_Grad1_Final_Presentation.pdf">View Graduation Project 1 Final Presentation</a>
+  📄 <a href="https://1drv.ms/p/c/bd8ed2cd16a50bce/IQByFXDQW8ZmRrvQCQ5zdnxmAY1gXEo0lInkzPvP77mQC7Y">View Graduation Project 1 Final Presentation</a>
 </p>
 
 ---
