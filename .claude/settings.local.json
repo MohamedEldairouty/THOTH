@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(Get-ChildItem \"D:\\\\Prog\\\\Thoth\" -ErrorAction SilentlyContinue; Write-Host \"Exit: $LASTEXITCODE\")"
-    ]
-  }
-}
