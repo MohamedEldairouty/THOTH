@@ -2,20 +2,73 @@ import asyncio
 import base64
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 
-# Ensure ffmpeg is reachable on Windows even if PATH was not refreshed
-# (Whisper invokes ffmpeg as a subprocess; without this it raises FileNotFoundError)
-_FFMPEG_DIR = r"C:\ffmpeg\bin"
-if os.name == "nt" and os.path.isdir(_FFMPEG_DIR) and _FFMPEG_DIR not in os.environ.get("PATH", ""):
-    os.environ["PATH"] = _FFMPEG_DIR + os.pathsep + os.environ.get("PATH", "")
+import numpy as np
 
-if shutil.which("ffmpeg") is None:
-    print("⚠ WARNING: ffmpeg not found on PATH — Whisper transcription will fail.")
+# ─────────────────────────────────────────────────────────────
+# ffmpeg resolution (Windows-friendly)
+# Whisper calls subprocess.run(["ffmpeg", ...]) and on Windows the
+# bare name is not always resolved from PATH inside child processes.
+# We pick a concrete ffmpeg.exe path and monkey-patch whisper.audio
+# so it never relies on PATH lookups.
+# ─────────────────────────────────────────────────────────────
+
+def _resolve_ffmpeg() -> str | None:
+    # 1) explicit env override
+    env = os.environ.get("FFMPEG_BINARY")
+    if env and os.path.isfile(env):
+        return env
+    # 2) PATH lookup
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    # 3) common Windows install locations
+    for p in (r"C:\ffmpeg\bin\ffmpeg.exe", r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"):
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+FFMPEG_EXE = _resolve_ffmpeg()
+if FFMPEG_EXE is None:
+    print("[WARNING] ffmpeg not found - Whisper transcription will fail.")
+else:
+    # Ensure subprocesses can also find it
+    ffmpeg_dir = os.path.dirname(FFMPEG_EXE)
+    if ffmpeg_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
 
 import edge_tts
 import whisper
+import whisper.audio as _whisper_audio
+
+
+def _patched_load_audio(file: str, sr: int = 16000) -> np.ndarray:
+    """Replacement for whisper.audio.load_audio using absolute ffmpeg path."""
+    if FFMPEG_EXE is None:
+        raise RuntimeError("ffmpeg not available")
+    cmd = [
+        FFMPEG_EXE,
+        "-nostdin",
+        "-threads", "0",
+        "-i", file,
+        "-f", "s16le",
+        "-ac", "1",
+        "-acodec", "pcm_s16le",
+        "-ar", str(sr),
+        "-",
+    ]
+    out = subprocess.run(cmd, capture_output=True, check=True).stdout
+    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+# Apply the patch — whisper will now use the absolute ffmpeg path
+if FFMPEG_EXE is not None:
+    _whisper_audio.load_audio = _patched_load_audio
+    print(f"[OK] Voice service ready (ffmpeg: {FFMPEG_EXE})")
 
 VOICES = {
     "ar": "ar-EG-SalmaNeural",
