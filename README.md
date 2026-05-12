@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="THOTH Logo" width="220"/>
+  <img src="assets/logo/logo.png" alt="THOTH Logo" width="220"/>
 </p>
 
 <h1 align="center">🏛️ THOTH — Smart Museum Guide Robot</h1>
@@ -210,9 +210,9 @@ The database supports:
 | **[@Mohamed Abdallah Eldairouty](https://github.com/MohamedEldairouty)** — 221001719 | 🌐 Full-Stack Web Application |
 | **Leena Gouda** — 221001719 | 🧠 AI / LLM / Voice Interaction |
 | **Nayrouz Ahmed** — 221011969 | 😀 Emotion Recognition & Image Processing |
-| **[@Saged Khaled](https://github.com/sagedkhaled263)** — 221001150 | 👤 Age Recognition & Image Processing |
-| **[@Youssef Waleed](https://github.com/Youssefwaleed2005)** — 221000928 | ⚡ Hardware Integration & Navigation |
+| **[@Youssef Waleed](https://github.com/Youssefwaleed2005)** — 221000928 | 👤 Age Recognition & Image Processing |
 | **[@Habiba Ghoneim](https://github.com/HabibaGhoneim)** — 221000287 | 🗺️ Simulation & Navigation |
+| **[@Saged Khaled](https://github.com/sagedkhaled263)** — 221001150 | 🗺️ Simulation & Navigation |
 
 ---
 

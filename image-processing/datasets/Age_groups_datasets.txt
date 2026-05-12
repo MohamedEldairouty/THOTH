@@ -1,0 +1,5 @@
+https://www.kaggle.com/datasets/trainingdatapro/age-detection-human-faces-18-60-years
+https://github.com/JingchunCheng/All-Age-Faces-Dataset
+https://www.kaggle.com/datasets/rashikrahmanpritom/age-recognition-dataset
+https://huggingface.co/prithivMLmods/open-age-detection
+https://susanqq.github.io/UTKFace/

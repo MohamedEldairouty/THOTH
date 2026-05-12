@@ -1,8 +1,18 @@
 import asyncio
 import base64
 import os
+import shutil
 import tempfile
 import time
+
+# Ensure ffmpeg is reachable on Windows even if PATH was not refreshed
+# (Whisper invokes ffmpeg as a subprocess; without this it raises FileNotFoundError)
+_FFMPEG_DIR = r"C:\ffmpeg\bin"
+if os.name == "nt" and os.path.isdir(_FFMPEG_DIR) and _FFMPEG_DIR not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _FFMPEG_DIR + os.pathsep + os.environ.get("PATH", "")
+
+if shutil.which("ffmpeg") is None:
+    print("⚠ WARNING: ffmpeg not found on PATH — Whisper transcription will fail.")
 
 import edge_tts
 import whisper

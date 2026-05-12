@@ -1,0 +1,10 @@
+https://www.kaggle.com/datasets/jonathanoheix/face-expression-recognition-dataset
+https://universe.roboflow.com/emotions-dectection/human-face-emotions
+https://huggingface.co/datasets/UniqueData/facial-emotion-recognition-dataset
+https://www.kaggle.com/datasets/mstjebashazida/affectnet
+https://www.kaggle.com/datasets/shuvoalok/raf-db-dataset
+
+
+
+
+
