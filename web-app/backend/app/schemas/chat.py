@@ -13,6 +13,7 @@ class ChatResponse(BaseModel):
     reply: str
     session_id: int
     language: str
+    audio_base64: str | None = None  # base64 MP3, present when TTS is requested
 
 
 class ChatMessageOut(BaseModel):

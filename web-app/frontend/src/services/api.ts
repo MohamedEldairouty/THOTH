@@ -34,6 +34,18 @@ export const getHalls = (lang: Language) =>
 export const sendChatMessage = (payload: ChatRequest) =>
   api.post<ChatResponse>('/chat', payload).then(r => r.data)
 
+export const sendVoiceMessage = (
+  audioBlob: Blob,
+  session_id?: number,
+  exhibit_id?: number,
+) => {
+  const form = new FormData()
+  form.append('audio', audioBlob, 'recording.webm')
+  if (session_id != null) form.append('session_id', String(session_id))
+  if (exhibit_id != null) form.append('exhibit_id', String(exhibit_id))
+  return api.post<ChatResponse>('/chat/voice', form).then(r => r.data)
+}
+
 // Map
 export const getMapOverview = () => api.get<MapOverview>('/map').then(r => r.data)
 
