@@ -8,7 +8,7 @@ from app.services.category_service import CategoryService
 router = APIRouter()
 
 
-@router.get("/", response_model=list[CategoryLocalized])
+@router.get("", response_model=list[CategoryLocalized])
 def list_categories(
     lang: str = Query("en", pattern="^(en|ar|fr)$"),
     db: Session = Depends(get_db),

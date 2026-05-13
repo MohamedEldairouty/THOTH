@@ -8,7 +8,7 @@ from app.services.exhibit_service import ExhibitService
 router = APIRouter()
 
 
-@router.get("/", response_model=list[ExhibitLocalized])
+@router.get("", response_model=list[ExhibitLocalized])
 def list_exhibits(
     lang: str = Query("en", pattern="^(en|ar|fr)$"),
     category_id: int | None = None,
@@ -32,7 +32,7 @@ def get_exhibit(
     return exhibit
 
 
-@router.post("/", response_model=ExhibitDB, status_code=201)
+@router.post("", response_model=ExhibitDB, status_code=201)
 def create_exhibit(payload: ExhibitCreate, db: Session = Depends(get_db)):
     return ExhibitService.create_exhibit(db, payload)
 

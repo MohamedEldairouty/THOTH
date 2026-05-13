@@ -12,7 +12,12 @@ import type {
   Language,
 } from '../types'
 
-const api = axios.create({ baseURL: '/api' })
+const api = axios.create({
+  baseURL: '/api',
+  // Bypass ngrok free-tier interstitial that otherwise replies with HTML
+  // and breaks JSON parsing on /api/* calls when tunneling over ngrok.
+  headers: { 'ngrok-skip-browser-warning': 'true' },
+})
 
 // Exhibits
 export const getExhibits = (

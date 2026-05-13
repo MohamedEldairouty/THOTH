@@ -8,6 +8,10 @@ app = FastAPI(
     title="THOTH Smart Museum Guide API",
     description="Backend API for the Grand Egyptian Museum smart guide system.",
     version="1.0.0",
+    # Disable trailing-slash redirects. Behind ngrok HTTPS the absolute Location
+    # header pointed at http://localhost:8001 and the browser upgraded it to
+    # https://, causing SSL_PROTOCOL_ERROR on mobile.
+    redirect_slashes=False,
 )
 
 app.add_middleware(

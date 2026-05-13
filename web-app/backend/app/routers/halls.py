@@ -8,7 +8,7 @@ from app.services.hall_service import HallService
 router = APIRouter()
 
 
-@router.get("/", response_model=list[HallLocalized])
+@router.get("", response_model=list[HallLocalized])
 def list_halls(
     lang: str = Query("en", pattern="^(en|ar|fr)$"),
     db: Session = Depends(get_db),

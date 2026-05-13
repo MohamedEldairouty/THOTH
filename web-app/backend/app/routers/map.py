@@ -7,7 +7,7 @@ from app.services.map_service import MapService
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 def get_map(db: Session = Depends(get_db)):
     return MapService.get_map_overview(db)
 
