@@ -209,7 +209,7 @@ The database supports:
 |---|---|
 | **[@Mohamed Abdallah Eldairouty](https://github.com/MohamedEldairouty)** — 221001719 | 🌐 Full-Stack Web Application |
 | **Leena Gouda** — 221001719 | 🧠 AI / LLM / Voice Interaction |
-| **Nayrouz Ahmed** — 221011969 | 😀 Emotion Recognition & Image Processing |
+| **Nayrouz Ahmed** — 221011969 | 😀 Mood Recognition & Image Processing |
 | **[@Youssef Waleed](https://github.com/Youssefwaleed2005)** — 221000928 | 👤 Age Recognition & Image Processing |
 | **[@Habiba Ghoneim](https://github.com/HabibaGhoneim)** — 221000287 | 🗺️ Simulation & Navigation |
 | **[@Saged Khaled](https://github.com/sagedkhaled263)** — 221001150 | 🗺️ Simulation & Navigation |
