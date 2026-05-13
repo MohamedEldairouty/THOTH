@@ -10,8 +10,8 @@ router = APIRouter()
 
 @router.post("/", response_model=ChatResponse)
 def chat(payload: ChatRequest, db: Session = Depends(get_db)):
-    """Text chat — calls Gemini, returns text reply (+ optional TTS)."""
-    return ChatService.handle_message(db, payload, with_tts=False)
+    """Text chat — calls Gemini, returns text reply + TTS audio."""
+    return ChatService.handle_message(db, payload, with_tts=True)
 
 
 @router.post("/voice", response_model=ChatResponse)

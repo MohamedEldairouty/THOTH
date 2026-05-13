@@ -31,27 +31,78 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  // ── Audio playback state (one shared player) ───────────────
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Track which message index is currently the active audio, and if paused
+  const [audio, setAudio] = useState<{ idx: number; paused: boolean } | null>(null)
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+      audioRef.current = null
+    }
+    setAudio(null)
+  }
+
+  const togglePlay = (idx: number, base64: string) => {
+    // Same message — toggle pause/resume
+    if (audio?.idx === idx && audioRef.current) {
+      if (audio.paused) {
+        audioRef.current.play().catch(() => {})
+        setAudio({ idx, paused: false })
+      } else {
+        audioRef.current.pause()
+        setAudio({ idx, paused: true })
+      }
+      return
+    }
+    // Different message — stop current, start new
+    stopAudio()
+    const el = new Audio(`data:audio/mp3;base64,${base64}`)
+    el.onended = () => {
+      audioRef.current = null
+      setAudio(null)
+    }
+    audioRef.current = el
+    setAudio({ idx, paused: false })
+    el.play().catch(() => setAudio(null))
+  }
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Play base64 audio ──────────────────────────────────────
-  const playAudio = (base64: string) => {
-    const audio = new Audio(`data:audio/mp3;base64,${base64}`)
-    audio.play().catch(() => {})
-  }
+  // Auto-stop audio on unmount / page leave
+  useEffect(() => {
+    const handler = () => stopAudio()
+    window.addEventListener('beforeunload', handler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+      stopAudio()
+    }
+  }, [])
 
   // ── Text send ─────────────────────────────────────────────
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
+    stopAudio()                       // stop any currently-playing audio
     setInput('')
     setMessages(m => [...m, { role: 'user', content: text }])
     setLoading(true)
     try {
       const res = await sendChatMessage({ message: text, session_id: sessionId, language: lang, exhibit_id: exhibitId })
       setSessionId(res.session_id)
-      setMessages(m => [...m, { role: 'assistant', content: res.reply, audio_base64: res.audio_base64 ?? undefined }])
+      setMessages(m => {
+        const next = [...m, { role: 'assistant' as const, content: res.reply, audio_base64: res.audio_base64 ?? undefined }]
+        // Auto-play the new TTS reply
+        if (res.audio_base64) {
+          // Defer so the message list has rendered
+          setTimeout(() => togglePlay(next.length - 1, res.audio_base64!), 0)
+        }
+        return next
+      })
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: t.error }])
     } finally {
@@ -60,39 +111,88 @@ export default function ChatPage() {
   }
 
   // ── Voice record ───────────────────────────────────────────
+  // Track when recording started so we can enforce a minimum duration
+  const recordStartRef = useRef<number>(0)
+
   const startRecording = async () => {
+    console.log('[mic] startRecording called')
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMessages(m => [...m, { role: 'assistant', content: '⚠ Your browser does not support microphone access. Use Chrome, Edge or Firefox on localhost/HTTPS.' }])
+        return
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
+      console.log('[mic] got stream')
+
+      // Pick the first supported mime type — Chrome/Edge support opus, Safari uses mp4
+      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', '']
+      const mimeType = candidates.find(t => !t || MediaRecorder.isTypeSupported(t)) || ''
+      console.log('[mic] using mimeType:', mimeType || 'browser default')
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
       audioChunksRef.current = []
-      recorder.ondataavailable = e => audioChunksRef.current.push(e.data)
+
+      recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' })
+        const duration = Date.now() - recordStartRef.current
+        console.log(`[mic] stopped — duration=${duration}ms, size=${blob.size}`)
+
+        if (duration < 500 || blob.size < 2000) {
+          setMessages(m => [...m, { role: 'assistant', content: lang === 'ar' ? 'التسجيل قصير جداً. حاول مرة أخرى.' : lang === 'fr' ? 'Enregistrement trop court. Réessayez.' : 'Recording too short. Please speak for at least 1 second.' }])
+          return
+        }
         await handleVoice(blob)
       }
+      recorder.onerror = (e: Event) => {
+        console.error('[mic] recorder error:', e)
+        setMessages(m => [...m, { role: 'assistant', content: '⚠ Recording error. Check console.' }])
+      }
+
       mediaRecorderRef.current = recorder
-      recorder.start()
+      recorder.start(250)
+      recordStartRef.current = Date.now()
       setRecording(true)
-    } catch {
-      alert('Microphone access denied.')
+      console.log('[mic] recording started')
+    } catch (err: any) {
+      console.error('[mic] getUserMedia error:', err)
+      const reason = err?.name || err?.message || 'Unknown'
+      setMessages(m => [...m, { role: 'assistant', content: `⚠ Microphone access failed: ${reason}. Click the lock icon in the address bar and allow microphone, then refresh.` }])
     }
   }
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop()
+    console.log('[mic] stopRecording called, state:', mediaRecorderRef.current?.state)
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop()
+      }
+    } catch (e) {
+      console.error('[mic] stop error:', e)
+    }
     setRecording(false)
   }
 
   const handleVoice = async (blob: Blob) => {
+    stopAudio()                       // stop any currently-playing audio
     setMessages(m => [...m, { role: 'user', content: '🎤 Voice message' }])
     setLoading(true)
     try {
       const res = await sendVoiceMessage(blob, sessionId, exhibitId)
       setSessionId(res.session_id)
-      const msg: Message = { role: 'assistant', content: res.reply, audio_base64: res.audio_base64 ?? undefined }
-      setMessages(m => [...m, msg])
-      if (res.audio_base64) playAudio(res.audio_base64)
+      const reply = res.reply || (lang === 'ar' ? 'لم أسمع شيئاً، حاول مرة أخرى.' : lang === 'fr' ? 'Je n\'ai rien entendu, réessayez.' : "I didn't catch that, please try again.")
+      const msg: Message = { role: 'assistant', content: reply, audio_base64: res.audio_base64 ?? undefined }
+      setMessages(m => {
+        const next = [...m, msg]
+        if (res.audio_base64) {
+          setTimeout(() => togglePlay(next.length - 1, res.audio_base64!), 0)
+        }
+        return next
+      })
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: t.error }])
     } finally {
@@ -146,15 +246,30 @@ export default function ChatPage() {
               )}
               {msg.content}
 
-              {/* Play audio button for assistant messages */}
-              {msg.role === 'assistant' && msg.audio_base64 && (
-                <button
-                  onClick={() => playAudio(msg.audio_base64!)}
-                  className="mt-2 flex items-center gap-1 text-gem-gold/60 hover:text-gem-gold text-xs transition-colors"
-                >
-                  🔊 {lang === 'ar' ? 'استمع' : lang === 'fr' ? 'Écouter' : 'Play audio'}
-                </button>
-              )}
+              {/* Play / pause audio button for assistant messages */}
+              {msg.role === 'assistant' && msg.audio_base64 && (() => {
+                const isActive = audio?.idx === i
+                const isPlaying = isActive && !audio!.paused
+                const isPaused = isActive && audio!.paused
+                const label = isPlaying
+                  ? (lang === 'ar' ? 'إيقاف مؤقت' : lang === 'fr' ? 'Pause' : 'Pause')
+                  : isPaused
+                    ? (lang === 'ar' ? 'متابعة' : lang === 'fr' ? 'Reprendre' : 'Resume')
+                    : (lang === 'ar' ? 'استمع' : lang === 'fr' ? 'Écouter' : 'Play')
+                return (
+                  <button
+                    onClick={() => togglePlay(i, msg.audio_base64!)}
+                    className="mt-2 inline-flex items-center gap-1.5 text-gem-gold/70 hover:text-gem-gold text-xs transition-colors"
+                  >
+                    {isPlaying ? (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    )}
+                    {label}
+                  </button>
+                )
+              })()}
             </div>
           </div>
         ))}
@@ -174,22 +289,21 @@ export default function ChatPage() {
 
       {/* Input bar */}
       <div className="flex gap-3 items-center">
-        {/* Mic button */}
+        {/* Mic button — click to toggle */}
         <button
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
+          type="button"
+          onClick={recording ? stopRecording : startRecording}
           disabled={loading}
           className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
             recording
               ? 'bg-red-500 scale-110 shadow-[0_0_16px_rgba(239,68,68,0.6)]'
               : 'bg-gem-gold/10 border border-gem-gold/40 hover:bg-gem-gold/20 text-gem-gold'
           } disabled:opacity-40`}
-          title={lang === 'ar' ? 'اضغط مع الاستمرار للتسجيل' : 'Hold to record'}
+          title={recording ? 'Click to stop' : 'Click to start recording'}
+          aria-label={recording ? 'Stop recording' : 'Start recording'}
         >
           {recording ? (
-            <span className="w-3 h-3 rounded-full bg-white animate-pulse" />
+            <span className="w-3 h-3 rounded-sm bg-white" />
           ) : (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v7a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-7 9h2a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V21h3v2H8v-2h3v-2.08A7 7 0 0 1 5 12z"/>
@@ -218,9 +332,9 @@ export default function ChatPage() {
 
       {recording && (
         <p className="text-center text-red-400 text-xs mt-2 animate-pulse">
-          {lang === 'ar' ? '● جاري التسجيل — أفلت للإيقاف' :
-           lang === 'fr' ? '● Enregistrement — relâchez pour arrêter' :
-           '● Recording — release to stop'}
+          {lang === 'ar' ? '● جاري التسجيل — اضغط مرة أخرى للإيقاف' :
+           lang === 'fr' ? '● Enregistrement — cliquez pour arrêter' :
+           '● Recording — click the mic again to stop'}
         </p>
       )}
     </div>

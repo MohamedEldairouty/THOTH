@@ -61,8 +61,16 @@ def _patched_load_audio(file: str, sr: int = 16000) -> np.ndarray:
         "-ar", str(sr),
         "-",
     ]
-    out = subprocess.run(cmd, capture_output=True, check=True).stdout
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    result = subprocess.run(cmd, capture_output=True)
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        # Surface a clean error message including ffmpeg's last lines
+        raise RuntimeError(
+            f"ffmpeg failed to decode audio (exit {result.returncode}). "
+            f"Common cause: empty/very short recording. "
+            f"Details: {stderr[-400:]}"
+        )
+    return np.frombuffer(result.stdout, np.int16).flatten().astype(np.float32) / 32768.0
 
 
 # Apply the patch — whisper will now use the absolute ffmpeg path
@@ -71,9 +79,9 @@ if FFMPEG_EXE is not None:
     print(f"[OK] Voice service ready (ffmpeg: {FFMPEG_EXE})")
 
 VOICES = {
-    "ar": "ar-EG-SalmaNeural",
-    "en": "en-US-JennyNeural",
-    "fr": "fr-FR-DeniseNeural",
+    "ar": "ar-EG-ShakirNeural",   # Egyptian Arabic — male
+    "en": "en-US-GuyNeural",       # US English — male
+    "fr": "fr-FR-HenriNeural",     # French — male
 }
 
 _whisper_model = None
@@ -90,15 +98,35 @@ def get_whisper_model():
 
 def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
     """Transcribe audio bytes → (text, language_code)."""
+    print(f"[voice] received {len(audio_bytes)} bytes of audio")
+
+    # Guard: empty / near-empty blobs from a too-short recording
+    if len(audio_bytes) < 2000:
+        print(f"[voice] rejected — too short")
+        return "", "en"
+
     suffix = ".webm"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(audio_bytes)
         tmp_path = f.name
     try:
+        # Pre-decode to check amplitude (catches silent mic)
+        try:
+            pcm = _patched_load_audio(tmp_path)
+            import numpy as _np
+            peak = float(_np.max(_np.abs(pcm))) if pcm.size else 0.0
+            print(f"[voice] decoded PCM: {pcm.size} samples, peak amplitude={peak:.4f}")
+            if peak < 0.005:
+                print("[voice] audio is essentially silent — mic level too low or muted")
+                return "", "en"
+        except Exception as e:
+            print(f"[voice] pre-decode failed: {e}")
+
         model = get_whisper_model()
         result = model.transcribe(tmp_path)
         text = result["text"].strip()
         lang = result["language"]
+        print(f"[voice] whisper → lang={lang!r}, text={text!r}")
         if lang not in ("ar", "en", "fr"):
             lang = "en"
         return text, lang
@@ -115,11 +143,42 @@ async def _generate_tts(text: str, language: str, output_path: str) -> None:
     await communicate.save(output_path)
 
 
+def _run_tts_in_thread(text: str, language: str, output_path: str) -> None:
+    """Run async edge-tts in a fresh event loop on a new thread.
+
+    Required because text_to_speech_base64 is called from inside FastAPI's
+    running event loop, where asyncio.run() raises RuntimeError.
+    """
+    import threading
+
+    err: list[BaseException] = []
+
+    def _worker():
+        try:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_generate_tts(text, language, output_path))
+            finally:
+                loop.close()
+        except BaseException as e:
+            err.append(e)
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(timeout=30)
+    if err:
+        raise err[0]
+    if t.is_alive():
+        raise RuntimeError("edge-tts timed out after 30s")
+
+
 def text_to_speech_base64(text: str, language: str) -> str:
     """Convert text to speech and return base64-encoded MP3."""
-    output_path = os.path.join(tempfile.gettempdir(), f"thoth_tts_{int(time.time())}.mp3")
+    if not text or not text.strip():
+        return ""
+    output_path = os.path.join(tempfile.gettempdir(), f"thoth_tts_{int(time.time() * 1000)}.mp3")
     try:
-        asyncio.run(_generate_tts(text, language, output_path))
+        _run_tts_in_thread(text, language, output_path)
         with open(output_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     finally:
