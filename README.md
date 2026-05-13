@@ -203,6 +203,42 @@ The database supports:
 
 ---
 
+# 📸 Application Preview
+
+## 🏠 THOTH Home Page
+
+<p align="center">
+  <img src="assets/screenshots/THOTH_HomePage.jpg" alt="THOTH Home Page" width="85%"/>
+</p>
+
+Modern museum-inspired touchscreen interface designed for smart interactive visitor experiences.
+
+---
+
+## 🖼️ Exhibit Exploration Interface
+
+<p align="center">
+  <img src="assets/screenshots/THOTH_Exhibits.jpg" alt="THOTH Exhibits Page" width="85%"/>
+</p>
+
+Interactive exhibit browsing system with multilingual support and intelligent navigation-ready architecture.
+
+---
+
+# 🎥 Demo Video
+
+## 🤖 Ask THOTH — AI Museum Assistant Demo
+
+<p align="center">
+  <a href="assets/demo-videos/Ask_THOTH_Demo.mp4">
+    <img src="https://img.shields.io/badge/▶️-Watch%20Demo-blue?style=for-the-badge" />
+  </a>
+</p>
+
+Demonstration of the THOTH AI assistant handling interactive museum-related conversations inside the touchscreen web application.
+
+---
+
 # 👥 Team Members
 
 | Member | Role |
