@@ -244,7 +244,7 @@ Demonstration of the THOTH AI assistant handling interactive museum-related conv
 | Member | Role |
 |---|---|
 | **[@Mohamed Abdallah Eldairouty](https://github.com/MohamedEldairouty)** — 221001719 | 🌐 Full-Stack Web Application |
-| **Leena Gouda** — 221001719 | 🧠 AI / LLM / Voice Interaction |
+| **[@Leena Gouda](https://github.com/leena-gouda)** — 221001794 | 🧠 AI / LLM / Voice Interaction |
 | **Nayrouz Ahmed** — 221011969 | 😀 Mood Recognition & Image Processing |
 | **[@Youssef Waleed](https://github.com/Youssefwaleed2005)** — 221000928 | 👤 Age Recognition & Image Processing |
 | **[@Habiba Ghoneim](https://github.com/HabibaGhoneim)** — 221000287 | 🗺️ Simulation & Navigation |
