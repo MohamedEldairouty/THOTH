@@ -1,0 +1,190 @@
+<?xml version="1.0" ?>
+<sdf version="1.8" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- headless arg passed by the launch file -->
+  <xacro:arg name="headless" default="False"/>
+
+  <world name="custom_map_world">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+
+    <!-- Only load sensors plugin when not headless -->
+    <xacro:unless value="$(arg headless)">
+      <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+        <render_engine>ogre2</render_engine>
+      </plugin>
+    </xacro:unless>
+
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>60 60</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>60 60</size></plane></geometry>
+          <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.8 0.8 0.8 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- TOP BAND -->
+    <model name="top_band">
+      <static>true</static>
+      <pose>0.0 7.25 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>34.0 1.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>34.0 1.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- UPPER LEFT -->
+    <model name="upper_left">
+      <static>true</static>
+      <pose>-14.0 4.25 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6.0 4.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6.0 4.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- UPPER MID WALL -->
+    <model name="upper_mid_wall">
+      <static>true</static>
+      <pose>-0.5 4.25 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6.0 4.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6.0 4.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- UPPER RIGHT -->
+    <model name="upper_right">
+      <static>true</static>
+      <pose>13.0 4.25 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>8.0 4.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>8.0 4.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- LEFT WALL -->
+    <model name="left_wall">
+      <static>true</static>
+      <pose>-16.5 -3.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>1.0 10.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>1.0 10.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- LEFT BUMP UPPER -->
+    <model name="left_bump">
+      <static>true</static>
+      <pose>-15.5 0.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>1.0 4.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>1.0 4.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- LEFT LOWER BUMP -->
+    <model name="left_lower_bump">
+      <static>true</static>
+      <pose>-15.5 -4.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>1.0 4.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>1.0 4.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- RIGHT WALL -->
+    <model name="right_wall">
+      <static>true</static>
+      <pose>16.0 -0.75 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 14.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>2.0 14.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- RIGHT LOWER WIDE -->
+    <model name="right_lower_wide">
+      <static>true</static>
+      <pose>14.0 -4.75 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>2.0 2.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- CENTER PILLAR -->
+    <model name="center_pillar">
+      <static>true</static>
+      <pose>2.25 -4.75 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6.5 2.5 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6.5 2.5 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- BOTTOM LEFT -->
+    <model name="bottom_left">
+      <static>true</static>
+      <pose>-12.0 -7.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>10.0 2.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>10.0 2.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- BOTTOM MID -->
+    <model name="bottom_mid">
+      <static>true</static>
+      <pose>1.25 -7.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>8.5 2.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>8.5 2.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- BOTTOM RIGHT -->
+    <model name="bottom_right">
+      <static>true</static>
+      <pose>14.0 -7.0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6.0 2.0 1.0</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6.0 2.0 1.0</size></box></geometry>
+        <material><ambient>0.25 0.25 0.25 1</ambient><diffuse>0.4 0.4 0.4 1</diffuse></material></visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>
