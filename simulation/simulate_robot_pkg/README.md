@@ -1,4 +1,4 @@
-# create a workspace
+# Create a workspace
 
 # Unzip into their workspace
 cd ~/their_ws/src
