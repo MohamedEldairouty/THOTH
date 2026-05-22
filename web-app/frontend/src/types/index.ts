@@ -64,11 +64,22 @@ export interface NavigationRequest {
   created_at: string
 }
 
+export interface MapConfig {
+  resolution: number   // meters per pixel
+  origin_x: number     // world x of map's bottom-left pixel
+  origin_y: number     // world y of map's bottom-left pixel
+  width_px: number
+  height_px: number
+  width_m: number
+  height_m: number
+}
+
 export interface MapOverview {
   map_image_url: string
+  map_config: MapConfig
   robot: {
-    x: number
-    y: number
+    x: number     // world meters
+    y: number     // world meters
     status: string
   }
 }
