@@ -1,6 +1,7 @@
 from setuptools import find_packages, setup
-import os 
+import os
 from glob import glob
+
 package_name = 'simulate_robot_pkg'
 
 setup(
@@ -11,22 +12,25 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        # Register launch files
         (os.path.join('share', package_name, 'launch'),
             glob('launch/*.launch.py')),
-        # Register map files
         (os.path.join('share', package_name, 'maps'),
             glob('maps/*')),
-        (os.path.join('share', package_name, 'urdf'), 
+        (os.path.join('share', package_name, 'urdf'),
             glob(os.path.join('urdf', '*.urdf'))),
+        (os.path.join('share', package_name, 'rviz'),
+            glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='saged',
     maintainer_email='sagedelsawy@gmail.com',
-    description='Tour robot bringup package',
+    description='THOTH museum tour guide robot simulation package',
     license='MIT',
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'exhibit_markers = simulate_robot_pkg.exhibit_markers_node:main',
+            'llm_narration   = simulate_robot_pkg.llm_narration_node:main',
+        ],
     },
 )
