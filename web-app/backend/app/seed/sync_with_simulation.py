@@ -34,15 +34,17 @@ EXHIBITS = [
         "y":  3.9759843349456787,
     },
     {
-        "match_substr": "Ramesses",   # legacy match → will be renamed
-        "title_en": "Rosetta Stone",
-        "title_ar": "حجر رشيد",
-        "title_fr": "Pierre de Rosette",
-        "short_en": "The decree of Ptolemy V — the key that unlocked hieroglyphs.",
-        "short_ar": "مرسوم بطليموس الخامس — المفتاح الذي فك رموز الهيروغليفية.",
-        "short_fr": "Le décret de Ptolémée V — la clé qui a déchiffré les hiéroglyphes.",
-        "era": "Ptolemaic",
-        "image_url": "/assets/exhibits/rosetta_stone.jpg",
+        # GEM doesn't actually have the Rosetta Stone (it's in the British Museum).
+        # Replacing with Statue of Khufu — a real GEM centerpiece.
+        "match_substr": "Rosetta",   # legacy match → will be renamed
+        "title_en": "Statue of Khufu",
+        "title_ar": "تمثال خوفو",
+        "title_fr": "Statue de Khéops",
+        "short_en": "The only known intact depiction of the pharaoh who built the Great Pyramid.",
+        "short_ar": "التصوير السليم الوحيد المعروف للفرعون الذي بنى الهرم الأكبر.",
+        "short_fr": "La seule représentation intacte connue du pharaon qui a construit la Grande Pyramide.",
+        "era": "Old Kingdom",
+        "image_url": "/assets/exhibits/khufu_statue.jpg",
         "x":  2.0068302154541016,
         "y":  0.941784143447876,
     },

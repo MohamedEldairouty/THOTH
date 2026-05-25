@@ -79,9 +79,10 @@ nano .env   # paste your GEMINI_API_KEY
 # DB schema + sync exhibits with simulation positions
 alembic upgrade head
 python -m app.seed.seed                       # base seed (categories, halls, robot)
-python -m app.seed.sync_with_simulation       # set exhibit positions to match sim team
-python -m app.seed.seed_tours                 # create 2 preset tours
-python -m app.seed.rethemes_map               # re-theme the new map.pgm to museum PNG
+python -m app.seed.sync_with_simulation       # 3 base exhibits at known walkable spots
+python -m app.seed.seed_more_exhibits         # +8 more real GEM exhibits
+python -m app.seed.seed_tours                 # 2 preset tours
+python -m app.seed.rethemes_map               # re-theme the map.pgm to museum PNG
 ```
 
 ---
@@ -100,21 +101,27 @@ npm install
 You need **three** terminals — one each for the simulation, the backend,
 and the frontend. Run them in this order.
 
-### Terminal 1 — ROS simulation (Gazebo + Nav2 + Exhibit Markers)
+### Terminal 1 — ROS simulation (stock Nav2 + TurtleBot3 + your map)
 
 ```bash
 source ~/.bashrc
 
 cd ~/THOTH/simulation
 
-ros2 launch simulate_robot_pkg thoth_launch_web.launch.py \
+ros2 launch nav2_bringup tb3_simulation_launch.py \
+  slam:=False \
   map:=$(pwd)/maps/map.yaml \
   world:=$(pwd)/maps/my_custom_world.sdf.xacro \
   headless:=False
 ```
 
-*Note: this uses `thoth_launch_web` (no LLM narration node) so the
-web app's backend owns the LLM pipeline without conflict.*
+*Why stock Nav2 and not the simulation team's custom launch?*
+Our backend owns all exhibit / tour / LLM logic. We **only** need Nav2's
+`/navigate_to_pose` action server and `/amcl_pose` topic from ROS.
+The sim team's package has extra nodes (`exhibit_markers_node`,
+`llm_narration_node`) that would duplicate or conflict with our work —
+running the stock launch ignores them entirely, keeping our system the
+single source of truth for exhibits.
 
 Wait until the terminal stops scrolling and you see Gazebo + RViz open.
 Then in RViz:
