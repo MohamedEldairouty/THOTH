@@ -79,9 +79,8 @@ nano .env   # paste your GEMINI_API_KEY
 # DB schema + sync exhibits with simulation positions
 alembic upgrade head
 python -m app.seed.seed                       # base seed (categories, halls, robot)
-python -m app.seed.sync_with_simulation       # 3 base exhibits at known walkable spots
-python -m app.seed.seed_more_exhibits         # +8 more real GEM exhibits
-python -m app.seed.seed_tours                 # 2 preset tours
+python -m app.seed.seed_exhibits              # the 6 final exhibits with full data
+python -m app.seed.seed_tours                 # 3 preset tours (Grand / Royal / Artistry)
 python -m app.seed.rethemes_map               # re-theme the map.pgm to museum PNG
 ```
 

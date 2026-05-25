@@ -1,7 +1,11 @@
 """
-Seed 2 curated preset tours referencing the 3 exhibits from sync_with_simulation.
+Three preset tours over the 6 exhibits from seed_exhibits.
 
-Run after `sync_with_simulation`:
+Tour A — Grand Tour: all 6 exhibits, roughly 20 minutes
+Tour B — Royal Highlights: 3 most-iconic royal artefacts
+Tour C — Artistry & Craft: 3 exhibits showcasing ancient Egyptian craftsmanship
+
+Run AFTER seed_exhibits:
     python -m app.seed.seed_tours
 """
 import sys, os
@@ -14,24 +18,49 @@ from app.models.tour import Tour, TourStop
 
 PRESETS = [
     {
-        "name_en": "Highlights Tour",
-        "name_ar": "جولة أبرز المعروضات",
-        "name_fr": "Visite des points forts",
-        "desc_en": "The three most-loved exhibits in 10 minutes. Perfect for a quick visit.",
-        "desc_ar": "أكثر ثلاثة معروضات شعبية في 10 دقائق. مثالية للزيارة السريعة.",
-        "desc_fr": "Les trois expositions les plus appréciées en 10 minutes. Idéale pour une visite rapide.",
-        "minutes": 10,
-        "exhibits": ["Golden Mask of Tutankhamun", "Rosetta Stone", "Royal Mummies Chamber"],
+        "name_en": "Grand Tour",
+        "name_ar": "الجولة الكبرى",
+        "name_fr": "Grand Parcours",
+        "desc_en": "Visit all six headline artefacts — the complete THOTH experience.",
+        "desc_ar": "زر جميع القطع الست الرئيسية — تجربة تحوت الكاملة.",
+        "desc_fr": "Visitez les six artefacts phares — l'expérience THOTH complète.",
+        "minutes": 20,
+        "exhibits": [
+            "Colossal Statue of Ramesses II",
+            "Golden Burial Mask of Tutankhamun",
+            "Seated Statue of Thutmose III",
+            "Head of King Amenhotep III",
+            "Statue of the Scribe Mitri",
+            "Statuette of a Falcon",
+        ],
     },
     {
-        "name_en": "Chronological Journey",
-        "name_ar": "رحلة زمنية",
-        "name_fr": "Parcours chronologique",
-        "desc_en": "Travel through three eras of ancient Egypt — Ptolemaic, then back to the New Kingdom.",
-        "desc_ar": "تنقل عبر ثلاث حقب من مصر القديمة — البطلمية، ثم العودة إلى المملكة الحديثة.",
-        "desc_fr": "Voyagez à travers trois époques de l'Égypte antique — Ptolémaïque, puis Nouvel Empire.",
-        "minutes": 12,
-        "exhibits": ["Rosetta Stone", "Golden Mask of Tutankhamun", "Royal Mummies Chamber"],
+        "name_en": "Royal Highlights",
+        "name_ar": "أبرز الملوك",
+        "name_fr": "Points forts royaux",
+        "desc_en": "Three iconic depictions of Egypt's greatest pharaohs in 10 minutes.",
+        "desc_ar": "ثلاثة تصويرات أيقونية لأعظم فراعنة مصر في 10 دقائق.",
+        "desc_fr": "Trois représentations emblématiques des plus grands pharaons d'Égypte en 10 minutes.",
+        "minutes": 10,
+        "exhibits": [
+            "Colossal Statue of Ramesses II",
+            "Golden Burial Mask of Tutankhamun",
+            "Seated Statue of Thutmose III",
+        ],
+    },
+    {
+        "name_en": "Artistry & Craft",
+        "name_ar": "الفن والحرفية",
+        "name_fr": "Art et Artisanat",
+        "desc_en": "Three exhibits that showcase the artistic mastery of ancient Egypt.",
+        "desc_ar": "ثلاث معروضات تستعرض البراعة الفنية لمصر القديمة.",
+        "desc_fr": "Trois expositions qui mettent en valeur la maîtrise artistique de l'Égypte antique.",
+        "minutes": 10,
+        "exhibits": [
+            "Head of King Amenhotep III",
+            "Statue of the Scribe Mitri",
+            "Statuette of a Falcon",
+        ],
     },
 ]
 
@@ -39,7 +68,7 @@ PRESETS = [
 def main() -> None:
     db = SessionLocal()
     try:
-        # Wipe existing presets so this is idempotent
+        # Wipe any existing preset tours so this is idempotent
         for old in db.query(Tour).filter(Tour.is_preset.is_(True)).all():
             db.delete(old)
         db.flush()
@@ -55,6 +84,7 @@ def main() -> None:
             db.add(tour)
             db.flush()
 
+            stop_count = 0
             for i, title in enumerate(p["exhibits"]):
                 exhibit = (db.query(Exhibit)
                              .filter(Exhibit.title_en.ilike(f"%{title}%"))
@@ -67,8 +97,9 @@ def main() -> None:
                     exhibit_id=exhibit.id,
                     sequence_order=i,
                 ))
+                stop_count += 1
 
-            print(f"  [+] {p['name_en']}  ({len(p['exhibits'])} stops, {p['minutes']} min)")
+            print(f"  [+] {p['name_en']:22s}  {stop_count} stops · ~{p['minutes']} min")
             created += 1
 
         db.commit()
