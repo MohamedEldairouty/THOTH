@@ -70,3 +70,71 @@ export const stopNavigation = () => api.post('/navigation/stop').then(r => r.dat
 
 export const getNavigationStatus = () =>
   api.get<NavigationRequest | null>('/navigation/status').then(r => r.data)
+
+// ── Tours ──────────────────────────────────────────────────────────────
+
+export interface TourSummary {
+  id: number
+  name: string
+  description: string | null
+  estimated_minutes: number | null
+  is_preset: boolean
+  stop_count: number
+  language: string
+}
+
+export interface TourStop {
+  sequence_order: number
+  exhibit_id: number
+  exhibit_title: string
+  exhibit_image: string | null
+  x_position: number | null
+  y_position: number | null
+}
+
+export interface TourDetail extends TourSummary {
+  stops: TourStop[]
+}
+
+export interface TourRun {
+  id: number
+  tour_id: number
+  tour_name: string
+  current_stop_index: number
+  total_stops: number
+  status: 'pending' | 'moving' | 'arrived' | 'completed' | 'cancelled'
+  language: string
+
+  current_exhibit_id: number | null
+  current_exhibit_title: string | null
+  current_exhibit_image: string | null
+  target_x: number | null
+  target_y: number | null
+
+  next_exhibit_id: number | null
+  next_exhibit_title: string | null
+
+  started_at: string
+  ended_at: string | null
+}
+
+export const listTours = (lang: Language) =>
+  api.get<TourSummary[]>('/tours/presets', { params: { lang } }).then(r => r.data)
+
+export const getTour = (tour_id: number, lang: Language) =>
+  api.get<TourDetail>(`/tours/${tour_id}`, { params: { lang } }).then(r => r.data)
+
+export const startTour = (payload: {
+  tour_id?: number
+  exhibit_ids?: number[]
+  language: Language
+}) => api.post<TourRun>('/tours/start', payload).then(r => r.data)
+
+export const getCurrentTourRun = () =>
+  api.get<TourRun | null>('/tours/runs/current').then(r => r.data)
+
+export const advanceTour = (run_id: number) =>
+  api.post<TourRun>(`/tours/runs/${run_id}/next`).then(r => r.data)
+
+export const cancelTour = (run_id: number) =>
+  api.post(`/tours/runs/${run_id}/cancel`).then(r => r.data)

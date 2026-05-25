@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import exhibits, categories, halls, chat, map, robot, navigation
+from app.routers import exhibits, categories, halls, chat, map, robot, navigation, tours
 
 app = FastAPI(
     title="THOTH Smart Museum Guide API",
@@ -29,6 +29,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(map.router, prefix="/api/map", tags=["Map"])
 app.include_router(robot.router, prefix="/api/robot", tags=["Robot"])
 app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
+app.include_router(tours.router, prefix="/api/tours", tags=["Tours"])
 
 
 @app.get("/", tags=["Health"])

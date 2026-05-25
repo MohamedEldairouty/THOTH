@@ -6,6 +6,8 @@ import ExhibitDetailPage from '../pages/ExhibitDetailPage'
 import MapPage from '../pages/MapPage'
 import ChatPage from '../pages/ChatPage'
 import SettingsPage from '../pages/SettingsPage'
+import TourPage from '../pages/TourPage'
+import TourRunPage from '../pages/TourRunPage'
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="map" element={<MapPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="tour" element={<TourPage />} />
+        <Route path="tour/run" element={<TourRunPage />} />
       </Route>
     </Routes>
   )

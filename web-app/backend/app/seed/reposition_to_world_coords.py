@@ -16,14 +16,14 @@ from app.models.exhibit import Exhibit
 from app.models.robot import RobotStatus
 from app.services.map_service import MapService
 
-# Hand-picked spots that look walkable on the themed map.
-# (We'll refine these by sampling the PGM later — for now, decent enough
-# that the markers don't sit on a wall.)
+# Real positions taken from /clicked_point in RViz by the simulation team,
+# matching the 3 exhibit markers their exhibit_markers_node publishes.
+# Map origin is now [-17.0, -8.0] (centered), so these are world coords.
 TARGETS = {
     # title_en substring  ->  (world_x, world_y) in meters
-    "Tutankhamun":   (32.5, 7.5),
-    "Ramesses":      ( 12.0, 1.0),
-    "Book of":       (24.5, 1.0),
+    "Tutankhamun":     (-2.92494535446167,  3.9759843349456787),
+    "Rosetta":         ( 2.0068302154541016, 0.941784143447876),
+    "Royal Mummies":   ( 5.001344680786133, -2.0101232528686523),
 }
 
 

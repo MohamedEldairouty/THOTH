@@ -77,7 +77,7 @@ export default function HomePage() {
 
           {/* Action buttons */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link to="/exhibits" className="gem-btn-primary text-center text-sm">
+            <Link to="/tour" className="gem-btn-primary text-center text-sm">
               {t.startTour}
             </Link>
             <Link to="/exhibits" className="gem-btn-primary text-center text-sm">
