@@ -6,26 +6,28 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
-RVIZ_CONFIG  = '/home/saged/THOTH/simulation.rviz'
-PARAMS_FILE  = '/home/saged/THOTH/simulation/simulate_robot_pkg/maps/nav2_params.yaml'
-
 
 def generate_launch_description():
+    # Resolve everything relative to the installed package share so the launch
+    # is portable across machines (no hardcoded /home/<user> paths).
+    pkg_share    = get_package_share_directory('simulate_robot_pkg')
+    nav2_bringup = get_package_share_directory('nav2_bringup')
 
-    map_file   = LaunchConfiguration('map')
-    world_file = LaunchConfiguration('world')
-    headless   = LaunchConfiguration('headless', default='False')
-    rviz_config_file = LaunchConfiguration('rviz_config_file', default=RVIZ_CONFIG)
-    params_file      = LaunchConfiguration('params_file',      default=PARAMS_FILE)
+    default_map     = os.path.join(pkg_share, 'maps', 'map.yaml')
+    default_world   = os.path.join(pkg_share, 'maps', 'my_custom_world.sdf.xacro')
+    default_params  = os.path.join(pkg_share, 'maps', 'nav2_params.yaml')
+    default_rviz    = os.path.join(nav2_bringup, 'rviz', 'nav2_default_view.rviz')
 
-    # ── TB3 + Nav2 + RViz ─────────────────────────────────────
+    map_file         = LaunchConfiguration('map')
+    world_file       = LaunchConfiguration('world')
+    headless         = LaunchConfiguration('headless')
+    rviz_config_file = LaunchConfiguration('rviz_config_file')
+    params_file      = LaunchConfiguration('params_file')
+
+    # ── TB3 + Nav2 + RViz (stock nav2_bringup) ────────────────
     tb3_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('nav2_bringup'),
-                'launch',
-                'tb3_simulation_launch.py'
-            )
+            os.path.join(nav2_bringup, 'launch', 'tb3_simulation_launch.py')
         ),
         launch_arguments={
             'slam':             'False',
@@ -60,11 +62,13 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        DeclareLaunchArgument('map',             description='Full path to map.yaml'),
-        DeclareLaunchArgument('world',           description='Full path to world file'),
-        DeclareLaunchArgument('headless',        default_value='False'),
-        DeclareLaunchArgument('rviz_config_file',default_value=RVIZ_CONFIG),
-        DeclareLaunchArgument('params_file',     default_value=PARAMS_FILE),
+        DeclareLaunchArgument('map',              default_value=default_map,
+                              description='Full path to map.yaml'),
+        DeclareLaunchArgument('world',            default_value=default_world,
+                              description='Full path to the Gazebo world file'),
+        DeclareLaunchArgument('headless',         default_value='False'),
+        DeclareLaunchArgument('rviz_config_file', default_value=default_rviz),
+        DeclareLaunchArgument('params_file',      default_value=default_params),
 
         tb3_launch,
         exhibit_markers,
