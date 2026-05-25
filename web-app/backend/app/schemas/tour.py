@@ -51,3 +51,13 @@ class StartTourRequest(BaseModel):
     tour_id: int | None = None       # use a preset tour
     exhibit_ids: list[int] | None = None  # OR build a custom tour
     language: str = "en"
+
+
+class NarrationOut(BaseModel):
+    """What the robot says when it arrives at an exhibit."""
+    exhibit_id: int
+    exhibit_title: str
+    narration: str
+    has_more_stops: bool          # True → end with "shall we move on?"
+    language: str
+    audio_base64: str | None      # MP3 audio of the narration (TTS)

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useLanguage } from '../hooks/useLanguage'
 import {
   getCurrentTourRun, advanceTour, cancelTour,
-  getMapOverview, getRobotStatus,
-  type TourRun, type MapOverview as MapOv,
+  getMapOverview, getRobotStatus, getNarration,
+  type TourRun, type MapOverview as MapOv, type Narration,
 } from '../services/api'
 import type { RobotStatus, MapConfig } from '../types'
 
@@ -22,6 +22,9 @@ const T = {
     movingMsg: 'THOTH is on the way. Please wait here.',
     arrivedMsg: 'You\'ve arrived. Take a moment, then ask THOTH about this exhibit.',
     ask: 'Ask THOTH about this exhibit',
+    narrationLabel: 'THOTH is speaking',
+    replay: 'Replay narration',
+    stopAudio: 'Stop audio',
     cancel: 'Cancel tour',
     cancelled: 'Tour cancelled.',
     completed: 'Tour complete. Thank you!',
@@ -39,6 +42,9 @@ const T = {
     movingMsg: 'تحوت في الطريق. يرجى الانتظار هنا.',
     arrivedMsg: 'لقد وصلت. خذ لحظة، ثم اسأل تحوت عن هذا المعروض.',
     ask: 'اسأل تحوت عن هذا المعروض',
+    narrationLabel: 'تحوت يتحدث',
+    replay: 'إعادة الشرح',
+    stopAudio: 'إيقاف الصوت',
     cancel: 'إلغاء الجولة',
     cancelled: 'تم إلغاء الجولة.',
     completed: 'اكتملت الجولة. شكراً لك!',
@@ -56,6 +62,9 @@ const T = {
     movingMsg: 'THOTH est en route. Veuillez attendre ici.',
     arrivedMsg: 'Vous êtes arrivé. Prenez un moment, puis demandez à THOTH.',
     ask: 'Demander à THOTH',
+    narrationLabel: 'THOTH parle',
+    replay: 'Rejouer la narration',
+    stopAudio: 'Arrêter l\'audio',
     cancel: 'Annuler la visite',
     cancelled: 'Visite annulée.',
     completed: 'Visite terminée. Merci !',
@@ -78,8 +87,33 @@ export default function TourRunPage() {
   const [map, setMap] = useState<MapOv | null>(null)
   const [robot, setRobot] = useState<RobotStatus | null>(null)
   const [busy, setBusy] = useState(false)
+  const [narration, setNarration] = useState<Narration | null>(null)
+  const [playing, setPlaying] = useState(false)
+
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const lastNarratedStop = useRef<{ runId: number; index: number } | null>(null)
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+      audioRef.current = null
+    }
+    setPlaying(false)
+  }
+
+  const playAudio = (base64: string) => {
+    stopAudio()
+    const el = new Audio(`data:audio/mp3;base64,${base64}`)
+    audioRef.current = el
+    el.onended = () => { audioRef.current = null; setPlaying(false) }
+    el.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+  }
 
   useEffect(() => { getMapOverview().then(setMap) }, [])
+
+  // Stop audio on unmount / leaving the page
+  useEffect(() => () => stopAudio(), [])
 
   // Poll tour state + robot position every 600ms
   useEffect(() => {
@@ -97,8 +131,37 @@ export default function TourRunPage() {
     return () => { alive = false; clearInterval(id) }
   }, [])
 
+  // When run transitions to 'arrived' at a new stop, fetch + play narration
+  useEffect(() => {
+    if (!run || run.status !== 'arrived') return
+
+    const stamp = { runId: run.id, index: run.current_stop_index }
+    const prev = lastNarratedStop.current
+    if (prev && prev.runId === stamp.runId && prev.index === stamp.index) return
+    lastNarratedStop.current = stamp
+
+    let alive = true
+    setNarration(null)
+    getNarration(run.id, true).then(n => {
+      if (!alive || !n) return
+      setNarration(n)
+      if (n.audio_base64) playAudio(n.audio_base64)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [run?.id, run?.status, run?.current_stop_index])
+
+  // When robot starts moving again, clear narration UI + audio
+  useEffect(() => {
+    if (run && run.status !== 'arrived') {
+      setNarration(null)
+      stopAudio()
+    }
+  }, [run?.status])
+
   const handleContinue = async () => {
     if (!run) return
+    stopAudio()
+    setNarration(null)
     setBusy(true)
     try {
       const r = await advanceTour(run.id)
@@ -108,6 +171,7 @@ export default function TourRunPage() {
 
   const handleCancel = async () => {
     if (!run) return
+    stopAudio()
     setBusy(true)
     try {
       await cancelTour(run.id)
@@ -231,6 +295,36 @@ export default function TourRunPage() {
             {/* Action area — depends on status */}
             {run.status === 'arrived' && (
               <>
+                {/* Narration card — text the robot speaks + playback control */}
+                {narration && (
+                  <div className="gem-card p-4 border-gem-gold/40">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={clsx(
+                        "w-2 h-2 rounded-full",
+                        playing ? "bg-gem-gold animate-pulse" : "bg-gem-gold/40"
+                      )} />
+                      <span className="text-gem-gold text-xs font-display uppercase tracking-wider">
+                        {t.narrationLabel}
+                      </span>
+                    </div>
+                    <p className="text-gem-text text-sm leading-relaxed mb-3">
+                      {narration.narration}
+                    </p>
+                    {narration.audio_base64 && (
+                      <button
+                        onClick={() => playing ? stopAudio() : playAudio(narration.audio_base64!)}
+                        className="text-gem-gold/70 hover:text-gem-gold text-xs inline-flex items-center gap-1.5 transition-colors"
+                      >
+                        {playing ? (
+                          <><svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> {t.stopAudio}</>
+                        ) : (
+                          <><svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> {t.replay}</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <Link
                   to={`/chat?exhibit=${run.current_exhibit_id}`}
                   className="gem-btn-ghost w-full text-center"

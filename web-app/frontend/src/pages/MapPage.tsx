@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
-import { getMapOverview, getMapExhibits, getRobotStatus, stopNavigation } from '../services/api'
+import { getMapOverview, getMapExhibits, getRobotStatus, stopNavigation, getCurrentTourRun } from '../services/api'
 import type { MapOverview, MapExhibitMarker, MapConfig, RobotStatus } from '../types'
+import type { TourRun } from '../services/api'
 
 /** Convert ROS world coordinates (meters) to screen percentages (0..100).
  *  ROS map convention: origin is the world coord of the PGM's bottom-left,
@@ -21,17 +22,23 @@ export default function MapPage() {
   const [markers, setMarkers] = useState<MapExhibitMarker[]>([])
   const [robot, setRobot] = useState<RobotStatus | null>(null)
   const [selected, setSelected] = useState<MapExhibitMarker | null>(null)
+  const [tourRun, setTourRun] = useState<TourRun | null>(null)
 
   useEffect(() => {
-    Promise.all([getMapOverview(), getMapExhibits(lang), getRobotStatus()]).then(
-      ([m, mx, r]) => { setMap(m); setMarkers(mx); setRobot(r) }
+    Promise.all([getMapOverview(), getMapExhibits(lang), getRobotStatus(), getCurrentTourRun()]).then(
+      ([m, mx, r, tr]) => { setMap(m); setMarkers(mx); setRobot(r); setTourRun(tr) }
     )
     // Fast poll while watching the robot animate during navigation
     const interval = setInterval(() => {
-      getRobotStatus().then(setRobot)
+      Promise.all([getRobotStatus(), getCurrentTourRun()]).then(
+        ([r, tr]) => { setRobot(r); setTourRun(tr) }
+      )
     }, 400)
     return () => clearInterval(interval)
   }, [lang])
+
+  const activeTargetId = tourRun?.status === 'moving' || tourRun?.status === 'arrived'
+    ? tourRun.current_exhibit_id : null
 
   const cfg = map?.map_config
 
@@ -64,17 +71,30 @@ export default function MapPage() {
               <rect width="100%" height="100%" fill="url(#grid)" />
             </svg>
 
-            {/* Exhibit markers — positions are in WORLD meters in the DB */}
+            {/* Exhibit markers — positions are in WORLD meters in the DB.
+                The active tour target gets a bigger glow + a pulsing ring. */}
             {cfg && markers.map(m => {
               const pos = worldToPercent(m.x, m.y, cfg)
+              const isTarget = m.id === activeTargetId
               return (
-                <button
-                  key={m.id}
-                  onClick={() => setSelected(m)}
-                  style={pos}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gem-gold border-2 border-gem-navy hover:scale-150 transition-transform z-10 shadow-[0_0_8px_rgba(201,168,76,0.6)]"
-                  title={`${m.title}  (${m.x.toFixed(1)} m, ${m.y.toFixed(1)} m)`}
-                />
+                <div key={m.id}>
+                  {isTarget && (
+                    <div
+                      style={pos}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-2 border-gem-gold animate-ping pointer-events-none z-10"
+                    />
+                  )}
+                  <button
+                    onClick={() => setSelected(m)}
+                    style={pos}
+                    className={
+                      isTarget
+                        ? "absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gem-gold border-2 border-white hover:scale-110 transition-transform z-15 shadow-[0_0_16px_rgba(201,168,76,0.95)]"
+                        : "absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gem-gold border-2 border-gem-navy hover:scale-150 transition-transform z-10 shadow-[0_0_8px_rgba(201,168,76,0.6)]"
+                    }
+                    title={`${m.title}  (${m.x.toFixed(1)} m, ${m.y.toFixed(1)} m)${isTarget ? '  ← current target' : ''}`}
+                  />
+                </div>
               )
             })}
 

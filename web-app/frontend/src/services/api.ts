@@ -138,3 +138,17 @@ export const advanceTour = (run_id: number) =>
 
 export const cancelTour = (run_id: number) =>
   api.post(`/tours/runs/${run_id}/cancel`).then(r => r.data)
+
+export interface Narration {
+  exhibit_id: number
+  exhibit_title: string
+  narration: string
+  has_more_stops: boolean
+  language: string
+  audio_base64: string | null
+}
+
+export const getNarration = (run_id: number, with_audio = true) =>
+  api.get<Narration | null>(`/tours/runs/${run_id}/narration`, {
+    params: { with_audio },
+  }).then(r => r.data)

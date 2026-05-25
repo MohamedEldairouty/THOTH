@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.exhibit import Exhibit
 from app.models.tour import Tour, TourStop
 from app.schemas.tour import (
-    StartTourRequest, TourDetail, TourRunOut, TourStopOut, TourSummary,
+    NarrationOut, StartTourRequest, TourDetail, TourRunOut, TourStopOut, TourSummary,
 )
 from app.services.tour_service import TourService
 
@@ -122,6 +122,18 @@ def advance_to_next(run_id: int, db: Session = Depends(get_db)):
     if not run:
         raise HTTPException(404, "Run not found")
     return _run_out(run, db)
+
+
+@router.get("/runs/{run_id}/narration", response_model=NarrationOut | None)
+def get_narration(
+    run_id: int,
+    with_audio: bool = Query(True),
+    db: Session = Depends(get_db),
+):
+    """Get the narration text + TTS audio for the exhibit the robot is
+    currently parked at. Returns null until status == 'arrived'."""
+    data = TourService.get_narration(db, run_id, with_audio=with_audio)
+    return data
 
 
 @router.post("/runs/{run_id}/cancel")

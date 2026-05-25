@@ -105,54 +105,34 @@ _anim_stop = threading.Event()
 
 
 def _animate_to(target_x: float, target_y: float) -> None:
-    """Smoothly move toward target, pause, then return home."""
-    SPEED_MPS = 1.2        # how fast the dot glides
-    RATE_HZ = 15           # update frequency
-    PAUSE_AT_EXHIBIT_S = 2 # how long to dwell at the exhibit
-    REACH_TOL = 0.10       # meters
+    """Smoothly move toward target and STOP there.
+    Does not auto-return home — the robot waits at the exhibit until
+    the next goal arrives (cancel + new send_goal)."""
+    SPEED_MPS = 1.2
+    RATE_HZ = 15
+    REACH_TOL = 0.10
     dt = 1.0 / RATE_HZ
-
-    def glide_to(tx: float, ty: float, end_status: str) -> bool:
-        while not _anim_stop.is_set():
-            with _state.lock:
-                dx = tx - _state.x
-                dy = ty - _state.y
-                dist = math.hypot(dx, dy)
-                if dist < REACH_TOL:
-                    _state.x = tx
-                    _state.y = ty
-                    _state.status = end_status
-                    return True
-                step = min(SPEED_MPS * dt, dist)
-                _state.x += dx / dist * step
-                _state.y += dy / dist * step
-                _state.yaw = math.atan2(dy, dx)
-            time.sleep(dt)
-        return False
 
     with _state.lock:
         _state.status = "navigating"
         _state.target_x = target_x
         _state.target_y = target_y
 
-    if not glide_to(target_x, target_y, "completed"):
-        return
-
-    # Linger at the exhibit
-    for _ in range(int(PAUSE_AT_EXHIBIT_S * RATE_HZ)):
-        if _anim_stop.is_set():
-            return
+    while not _anim_stop.is_set():
+        with _state.lock:
+            dx = target_x - _state.x
+            dy = target_y - _state.y
+            dist = math.hypot(dx, dy)
+            if dist < REACH_TOL:
+                _state.x = target_x
+                _state.y = target_y
+                _state.status = "completed"
+                return
+            step = min(SPEED_MPS * dt, dist)
+            _state.x += dx / dist * step
+            _state.y += dy / dist * step
+            _state.yaw = math.atan2(dy, dx)
         time.sleep(dt)
-
-    # Return to home
-    with _state.lock:
-        _state.status = "navigating"
-        home_x, home_y = _state.home_x, _state.home_y
-    glide_to(home_x, home_y, "idle")
-
-    with _state.lock:
-        _state.target_x = None
-        _state.target_y = None
 
 
 def _send_goal_stub(target_x: float, target_y: float) -> None:
