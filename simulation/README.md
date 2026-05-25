@@ -1,32 +1,45 @@
-# THOTH_ws — TurtleBot3 NAV2 Custom Map Simulation
+# THOTH Simulation
 
-ROS2 Jazzy + Gazebo Harmonic + NAV2 with a custom map.
-
-## Requirements
-
-- Ubuntu 24.04, ROS2 Jazzy, Gazebo Harmonic
+## Prerequisites
 
 ```bash
-sudo apt install ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
-  ros-jazzy-turtlebot3 ros-jazzy-turtlebot3-msgs \
-  ros-jazzy-turtlebot3-bringup ros-jazzy-teleop-twist-keyboard
+# Install Python dependencies
+pip install edge-tts soundfile sounddevice google-genai python-dotenv openai-whisper
+
+# Install system dependency
+sudo apt install libportaudio2 portaudio19-dev
 ```
 
-## Run the Simulation
+## Setup
+
+```bash
+# Set Gemini API key
+echo 'export GEMINI_API_KEY="your_api_key_here"' >> ~/.bashrc
+source ~/.bashrc
+
+# Build the package
+cd ~/THOTH/simulation
+colcon build --packages-select simulate_robot_pkg
+source install/setup.bash
+```
+
+## Run
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 export TURTLEBOT3_MODEL=waffle
+source ~/THOTH/simulation/install/setup.bash
 
-ros2 launch nav2_bringup tb3_simulation_launch.py \
-  slam:=False \
-  map:=$(pwd)/maps/map.yaml \
-  world:=$(pwd)/maps/my_custom_world.sdf.xacro \
-  headless:=False
+ros2 launch simulate_robot_pkg thoth_launch.launch.py \
+  map:=/home/$USER/THOTH/simulation/maps/map.yaml \
+  world:=/home/$USER/THOTH/simulation/maps/my_custom_world.sdf.xacro
 ```
 
-## Navigation
+## Usage
 
-1. In RViz click **2D Pose Estimate** and click where the robot is in Gazebo
-2. Click **Nav2 Goal** and click anywhere on the white area of the map
-3. The robot will navigate autonomously
+1. Wait for everything to load (~15 seconds)
+2. In RViz click **2D Pose Estimate** to set the robot's position on the map
+3. Wait for `All exhibits ready!` in the terminal
+4. Click **Nav2 Goal** on a colored marker on the map
+5. Robot navigates to the exhibit and narrates automatically
+6. Ask questions by voice in Arabic or English
