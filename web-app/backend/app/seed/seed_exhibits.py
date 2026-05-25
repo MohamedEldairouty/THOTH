@@ -16,6 +16,8 @@ Run:
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+from sqlalchemy import text
+
 from app.database import SessionLocal
 from app.models.exhibit import Exhibit
 from app.models.category import Category
@@ -154,6 +156,14 @@ def _find_or_first(db, model, **filters):
 def main() -> None:
     db = SessionLocal()
     try:
+        # Clear event/log tables that would block exhibit/tour cleanup.
+        # These are runtime tables (nav requests, tour runs, tour stops);
+        # no master data lives here, so it's safe to wipe.
+        db.execute(text("DELETE FROM navigation_requests"))
+        db.execute(text("DELETE FROM tour_stops"))
+        db.execute(text("DELETE FROM tour_runs"))
+        db.flush()
+
         # Drop any legacy exhibits that aren't in our final list
         final_titles = {e["title_en"] for e in EXHIBITS}
         legacy = db.query(Exhibit).filter(~Exhibit.title_en.in_(final_titles)).all()

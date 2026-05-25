@@ -11,6 +11,8 @@ Run AFTER seed_exhibits:
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+from sqlalchemy import text
+
 from app.database import SessionLocal
 from app.models.exhibit import Exhibit
 from app.models.tour import Tour, TourStop
@@ -68,6 +70,12 @@ PRESETS = [
 def main() -> None:
     db = SessionLocal()
     try:
+        # Wipe runtime tour state first — TourRun rows reference Tour by FK,
+        # so they must go before we can delete the tours themselves.
+        db.execute(text("DELETE FROM tour_runs"))
+        db.execute(text("DELETE FROM tour_stops"))
+        db.flush()
+
         # Wipe any existing preset tours so this is idempotent
         for old in db.query(Tour).filter(Tour.is_preset.is_(True)).all():
             db.delete(old)
