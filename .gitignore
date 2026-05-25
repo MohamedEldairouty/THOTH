@@ -37,6 +37,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# ROS 2 / colcon build artifacts
+install/
+log/
+build/
+
 # Docker
 *.pid
 
