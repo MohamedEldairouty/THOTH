@@ -34,8 +34,10 @@ try:
     from rclpy.node import Node  # type: ignore
     from rclpy.action import ActionClient  # type: ignore
     from rclpy.executors import SingleThreadedExecutor  # type: ignore
-    from geometry_msgs.msg import PoseWithCovarianceStamped  # type: ignore
+    from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped  # type: ignore
     from nav2_msgs.action import NavigateToPose  # type: ignore
+    from nav2_msgs.srv import ManageLifecycleNodes  # type: ignore
+    from lifecycle_msgs.srv import GetState  # type: ignore
     _ROS_OK = True
 except Exception:
     _ROS_OK = False
@@ -167,16 +169,24 @@ _action_client = None
 _active_goal_handle = None
 
 
+_initial_pose_pub = None
+_amcl_pose_seen = False
+
+
 def _init_ros() -> None:
-    """Lazy initializer — spins up an rclpy node in a background thread."""
-    global _ros_node, _ros_executor, _ros_thread, _action_client
+    """Lazy initializer — spins up an rclpy node in a background thread,
+    then makes sure Nav2's lifecycle is active and an initial pose is set."""
+    global _ros_node, _ros_executor, _ros_thread, _action_client, _initial_pose_pub
     if not USE_ROS or _ros_node is not None:
         return
 
     rclpy.init(args=None)
     _ros_node = Node("thoth_web_bridge")
 
+    # ── subscriptions ────────────────────────────────────────────────────
     def on_pose(msg):
+        global _amcl_pose_seen
+        _amcl_pose_seen = True
         p = msg.pose.pose.position
         q = msg.pose.pose.orientation
         siny = 2.0 * (q.w * q.z + q.x * q.y)
@@ -187,11 +197,13 @@ def _init_ros() -> None:
             _state.y = float(p.y)
             _state.yaw = yaw
 
-    _ros_node.create_subscription(
-        PoseWithCovarianceStamped, "/amcl_pose", on_pose, 10
-    )
+    _ros_node.create_subscription(PoseWithCovarianceStamped, "/amcl_pose", on_pose, 10)
 
+    # ── publishers / clients ─────────────────────────────────────────────
     _action_client = ActionClient(_ros_node, NavigateToPose, "navigate_to_pose")
+    _initial_pose_pub = _ros_node.create_publisher(
+        PoseWithCovarianceStamped, "/initialpose", 10
+    )
 
     _ros_executor = SingleThreadedExecutor()
     _ros_executor.add_node(_ros_node)
@@ -206,16 +218,107 @@ def _init_ros() -> None:
     _ros_thread.start()
     print("[ros] bridge ready — subscribing to /amcl_pose, action: /navigate_to_pose")
 
+    # ── bring the navigation lifecycle up if it's not already ──────────
+    # The sim team's nav2_params.yaml doesn't include lifecycle_manager_*
+    # autostart blocks, so bt_navigator / controller_server / planner_server
+    # stay 'inactive' after launch. We trigger STARTUP ourselves here.
+    threading.Thread(target=_bring_up_nav2, daemon=True).start()
+
+
+# ── Nav2 lifecycle bring-up (workaround for the sim team's params) ────────
+
+_LIFECYCLE_MANAGERS = (
+    "/lifecycle_manager_localization/manage_nodes",
+    "/lifecycle_manager_navigation/manage_nodes",
+)
+
+
+def _bring_up_nav2() -> None:
+    """Call STARTUP (command=0) on both lifecycle managers if they're up,
+    otherwise log and retry a few times."""
+    if not USE_ROS or _ros_node is None:
+        return
+
+    # Give the launch ~3 seconds to spawn the lifecycle services
+    time.sleep(3.0)
+
+    for attempt in range(1, 6):
+        ok_count = 0
+        for svc_name in _LIFECYCLE_MANAGERS:
+            client = _ros_node.create_client(ManageLifecycleNodes, svc_name)
+            if not client.wait_for_service(timeout_sec=2.0):
+                print(f"[ros] {svc_name} not available (attempt {attempt}/5)")
+                continue
+            req = ManageLifecycleNodes.Request()
+            req.command = 0  # STARTUP
+            fut = client.call_async(req)
+            # Block briefly for the response (executor is spinning on another thread)
+            t0 = time.time()
+            while not fut.done() and time.time() - t0 < 8.0:
+                time.sleep(0.1)
+            if fut.done() and fut.result() and fut.result().success:
+                print(f"[ros] {svc_name}  →  STARTUP OK")
+                ok_count += 1
+            else:
+                print(f"[ros] {svc_name}  →  STARTUP failed/timeout")
+
+        if ok_count == len(_LIFECYCLE_MANAGERS):
+            print("[ros] Nav2 lifecycle is active — navigation goals can now be sent.")
+            # If AMCL is active but we haven't seen /amcl_pose, push a default
+            # initial pose so AMCL produces the map→odom transform.
+            time.sleep(1.0)
+            if not _amcl_pose_seen:
+                _publish_initial_pose(0.0, 0.0, 0.0)
+            return
+        time.sleep(2.0)
+
+    print("[ros] WARNING: Couldn't bring Nav2 lifecycle up after 5 attempts.")
+    print("[ros]          Action goals will likely be rejected by bt_navigator.")
+
+
+def _publish_initial_pose(x: float, y: float, yaw: float) -> None:
+    """Publish to /initialpose so AMCL has a starting estimate.
+    Without this AMCL never publishes the map→odom transform."""
+    if _initial_pose_pub is None:
+        return
+    msg = PoseWithCovarianceStamped()
+    msg.header.frame_id = "map"
+    msg.header.stamp = _ros_node.get_clock().now().to_msg()
+    msg.pose.pose.position.x = float(x)
+    msg.pose.pose.position.y = float(y)
+    # yaw → quaternion
+    cz = math.cos(yaw * 0.5)
+    sz = math.sin(yaw * 0.5)
+    msg.pose.pose.orientation.z = sz
+    msg.pose.pose.orientation.w = cz
+    # Covariance — small values mean "I'm confident about this estimate"
+    cov = [0.0] * 36
+    cov[0]  = 0.25   # xx
+    cov[7]  = 0.25   # yy
+    cov[35] = 0.06853891909122467  # yawyaw
+    msg.pose.covariance = cov
+    # Publish a few times because /initialpose is volatile
+    for _ in range(3):
+        _initial_pose_pub.publish(msg)
+        time.sleep(0.2)
+    print(f"[ros] Published initial pose ({x}, {y}, yaw={yaw}) to /initialpose")
+
 
 def _send_goal_ros(target_x: float, target_y: float) -> None:
     global _active_goal_handle
     _init_ros()
 
+    print(f"[ros] send_goal({target_x:+.2f}, {target_y:+.2f})  — waiting on action server…")
+
+    # Bring lifecycle up again if needed (idempotent — fast no-op if already active)
     if not _action_client.wait_for_server(timeout_sec=2.0):
-        print("[ros] NavigateToPose action server not reachable")
-        with _state.lock:
-            _state.status = "aborted"
-        return
+        print("[ros]   action server not reachable on first try, triggering Nav2 STARTUP…")
+        _bring_up_nav2()
+        if not _action_client.wait_for_server(timeout_sec=5.0):
+            print("[ros]   STILL not reachable — aborting goal")
+            with _state.lock:
+                _state.status = "aborted"
+            return
 
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"
@@ -233,18 +336,32 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
 
     def on_response(f):
         global _active_goal_handle
-        gh = f.result()
-        _active_goal_handle = gh
-        if not gh.accepted:
+        try:
+            gh = f.result()
+        except Exception as e:
+            print(f"[ros]   send_goal_async error: {e}")
             with _state.lock:
                 _state.status = "aborted"
             return
+        _active_goal_handle = gh
+        if not gh.accepted:
+            print("[ros]   goal REJECTED by bt_navigator (server inactive, or unreachable pose)")
+            with _state.lock:
+                _state.status = "aborted"
+            return
+        print(f"[ros]   goal ACCEPTED → robot navigating to ({target_x:+.2f}, {target_y:+.2f})")
         gh.get_result_async().add_done_callback(_on_result)
 
     fut.add_done_callback(on_response)
 
 
 def _on_result(rf):
+    try:
+        result = rf.result()
+        code = getattr(result, "status", None)
+        print(f"[ros]   goal finished — status code {code}")
+    except Exception as e:
+        print(f"[ros]   result error: {e}")
     with _state.lock:
         _state.status = "completed"
         _state.target_x = None
