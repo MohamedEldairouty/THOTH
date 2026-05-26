@@ -108,6 +108,58 @@ THOTH aims to provide visitors with a futuristic museum experience where they ca
 
 ---
 
+# 🔗 ROS 2 — Node & Topic Graph
+
+Runtime communication between the sensing layer, the Nav2 navigation stack,
+and the web-app docent stack. Boxes are ROS nodes / process groups; labelled
+arrows are ROS topics (publisher → subscriber).
+
+```txt
+   ┌──────────────┐                              ┌──────────────┐
+   │ LiDAR Driver │                              │   Camera     │
+   └──────┬───────┘                              └──────┬───────┘
+          │ /scan                                       │ /image_raw
+          ▼                                  ┌──────────┴──────────┐
+   ┌──────────────────────────┐              ▼                     ▼
+   │       Nav2 Stack         │       ┌────────────┐        ┌────────────┐
+   │ ┌─────────┐ ┌──────────┐ │       │  Age Node  │        │ Mood Node  │
+   │ │  AMCL   │ │MapServer │ │       └──────┬─────┘        └─────┬──────┘
+   │ └─────────┘ └──────────┘ │              │ /age               │ /mood
+   │ ┌─────────┐ ┌──────────┐ │              ▼                    ▼
+   │ │Planner +│ │   BT     │◀┐      ┌────────────────────────────────────┐
+   │ │Control  │ │Navigator │ │      │           Docent Stack             │
+   │ └─────────┘ └──────────┘ │      │                                    │
+   └──────┬───────────────────┘ │    │      ┌──────────────────────┐      │
+          │  /cmd_vel           │    │      │   Web App + LLM      │      │
+          ▼                     │    │      │ FastAPI · React      │      │
+   ┌──────────────┐             │    │      │ Gemini · Whisper     │──┐   │
+   │ Serial Node  │             │    │      └──┬───────────────────┘  │   │
+   └──────┬───────┘             │    │         ▲                      │   │
+          │ serial              │    │         │                      │   │
+          ▼                     │    │  ┌──────┴────────┐    ┌────────▼─┐ │
+   ┌──────────────┐             │    │  │ Prompt Builder│    │   Tour   │ │
+   │ Arduino +    │             │    │  │ age+mood+     │    │Coordinat.│ │
+   │ Motors       │             │    │  │ exhibit       │    └──────────┘ │
+   └──────────────┘             │    │  └───────▲───────┘                 │
+                                │    │          │                         │
+              /amcl_pose ───────┘    │  ┌───────┴──────────┐              │
+              /goal_pose ────────────┼──┤  Database /      │              │
+                                     │  │  Exhibit Loader  │              │
+                                     │  └──────────────────┘              │
+                                     └────────────────────────────────────┘
+```
+
+**Topics actually used by the FastAPI backend (`web-app/backend/app/services/ros_service.py`):**
+
+| Direction | Name | Type | Purpose |
+|---|---|---|---|
+| Subscribe | `/amcl_pose` | `geometry_msgs/PoseWithCovarianceStamped` | Live robot pose → blue dot on the web map |
+| Publish   | `/initialpose` | `geometry_msgs/PoseWithCovarianceStamped` | Bootstraps AMCL so it can produce the `map → odom` transform |
+| Action client | `navigate_to_pose` | `nav2_msgs/action/NavigateToPose` | Sends each exhibit/tour goal in the `map` frame |
+| Service client | `/lifecycle_manager_{localization,navigation}/manage_nodes` | `nav2_msgs/srv/ManageLifecycleNodes` | Best-effort STARTUP if Nav2 isn't auto-activated |
+
+---
+
 # 🛠️ Technologies Used
 
 | Layer                 | Technologies                          |
@@ -225,17 +277,29 @@ Interactive exhibit browsing system with multilingual support and intelligent na
 
 ---
 
-# 🎥 Demo Video
+# 🎥 Demo Videos
 
 ## 🤖 Ask THOTH — AI Museum Assistant Demo
 
 <p align="center">
-  <a href="assets/demo-videos/Ask_THOTH_Demo.mp4">
-    <img src="https://img.shields.io/badge/▶️-Watch%20Demo-blue?style=for-the-badge" />
+  <a href="assets/demo-videos/Web-App/Ask_THOTH_Demo.mp4">
+    <img src="https://img.shields.io/badge/▶️-Watch%20Ask%20THOTH%20Demo-blue?style=for-the-badge" />
   </a>
 </p>
 
-Demonstration of the THOTH AI assistant handling interactive museum-related conversations inside the touchscreen web application.
+Demonstration of the THOTH AI assistant handling interactive museum-related conversations inside the touchscreen web application — multilingual voice + text chat, exhibit-aware answers, and TTS playback.
+
+---
+
+## 🗺️ Navigation & Tours — Web App Demo
+
+<p align="center">
+  <a href="assets/demo-videos/Web-App/Navigation_Web_Demo.mp4">
+    <img src="https://img.shields.io/badge/▶️-Watch%20Navigation%20Demo-goldenrod?style=for-the-badge" />
+  </a>
+</p>
+
+End-to-end run of the web app driving the simulated robot in Gazebo through Nav2: launching preset tours, building custom multi-stop tours, single-exhibit "Navigate Here", live robot pose on the museum map, and on-arrival narration in the visitor's chosen language.
 
 ---
 
