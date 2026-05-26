@@ -24,7 +24,8 @@ cd web-app/backend
 
 # one-time
 python -m venv .venv
-.venv/Scripts/activate           # Windows
+.venv\Scripts\activate           # Windows (cmd)
+# .venv/Scripts/activate         # Windows (PowerShell / Git Bash)
 # source .venv/bin/activate      # Linux/Mac
 pip install -r requirements.txt
 
