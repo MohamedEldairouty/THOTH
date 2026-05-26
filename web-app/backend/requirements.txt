@@ -14,15 +14,14 @@ edge-tts
 soundfile
 pyyaml
 
-# ── Vision (age + mood) ──────────────────────────────────────────────
-# DeepFace ships with TensorFlow and gives both age + 7-class emotion
-# from one analyse() call. Heavy install (~600MB with tf-cpu) but
-# eliminates the need to host & maintain separate model files until the
-# vision team ships their custom SSR-Net + EfficientNet weights.
-# Swap point: env THOTH_VISION_BACKEND=team will load their .keras/.pth
-# from web-app/backend/models/ instead (same VisionService interface).
-deepface>=0.0.93
-tensorflow-cpu>=2.16; sys_platform != "darwin"
-tensorflow>=2.16; sys_platform == "darwin"
+# ── Vision (age + mood) — runtime inference ─────────────────────────
+# Loads the team's trained PyTorch weights produced by
+# web-app/backend/training/. NO TensorFlow / DeepFace — both models are
+# pure PyTorch (ResNet50 + EfficientNet-B0).
+# For GPU install torch with the matching CUDA wheel BEFORE pip-installing
+# this file:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+torch>=2.2
+torchvision>=0.17
+timm>=1.0
 opencv-python-headless>=4.10
 pillow>=10.0
