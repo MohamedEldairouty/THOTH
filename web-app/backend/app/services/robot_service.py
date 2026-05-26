@@ -1,28 +1,19 @@
-from sqlalchemy.orm import Session
-
-from app.models.robot import RobotStatus
+"""
+Thin pass-through over ros_service. We used to persist robot state in a
+`robot_status` DB row, but that was redundant — the ROS bridge already owns
+the live pose + status, and we have no real battery/hall sensor in Grad I.
+Dropping the DB row keeps state in one place and lets us delete the
+robot_status table.
+"""
 from app.services import ros_service
 
 
 class RobotService:
-    """Reads the robot's live pose from ros_service (stub or real Nav2)
-    and keeps the DB row in sync so it survives across restarts."""
-
     @staticmethod
-    def get_status(db: Session) -> RobotStatus:
-        robot = db.query(RobotStatus).first()
-        if not robot:
-            robot = RobotStatus(status="idle", battery=100.0, current_x=3.0, current_y=3.0)
-            db.add(robot)
-            db.commit()
-            db.refresh(robot)
-
-        # Overlay the live pose + status from ros_service
+    def get_status() -> dict:
         x, y, _yaw = ros_service.get_pose()
-        live_status = ros_service.get_status()
-        robot.current_x = x
-        robot.current_y = y
-        robot.status = live_status
-        db.commit()
-        db.refresh(robot)
-        return robot
+        return {
+            "status": ros_service.get_status(),
+            "current_x": x,
+            "current_y": y,
+        }

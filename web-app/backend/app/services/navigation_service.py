@@ -11,7 +11,7 @@ The frontend should NOT call this while a tour is active — the
 from sqlalchemy.orm import Session
 
 from app.models.exhibit import Exhibit
-from app.models.robot import NavigationRequest, RobotStatus
+from app.models.robot import NavigationRequest
 from app.models.tour import TourRun
 from app.services import ros_service
 from app.services.tour_service import _build_narration
@@ -36,10 +36,11 @@ class NavigationService:
         if NavigationService.is_blocked_by_tour(db):
             raise ValueError("A tour is currently active — finish or cancel it first.")
 
-        # Cancel any in-progress single-nav requests
+        # Cancel any in-progress OR stale "arrived" single-nav requests so
+        # the new goal has a clean slate.
         db.query(NavigationRequest).filter(
-            NavigationRequest.status == "in_progress"
-        ).update({"status": "cancelled"})
+            NavigationRequest.status.in_(["in_progress", "arrived"])
+        ).update({"status": "cancelled"}, synchronize_session=False)
 
         exhibit = db.query(Exhibit).filter(Exhibit.id == exhibit_id).first()
         target_x = float(exhibit.x_position) if exhibit and exhibit.x_position is not None else None
@@ -51,11 +52,6 @@ class NavigationService:
             estimated_time=30,
         )
         db.add(nav)
-
-        robot = db.query(RobotStatus).first()
-        if robot:
-            robot.status = "navigating"
-
         db.commit()
         db.refresh(nav)
 
@@ -130,13 +126,8 @@ class NavigationService:
     @staticmethod
     def stop(db: Session) -> dict:
         db.query(NavigationRequest).filter(
-            NavigationRequest.status == "in_progress"
-        ).update({"status": "cancelled"})
-
-        robot = db.query(RobotStatus).first()
-        if robot:
-            robot.status = "idle"
-
+            NavigationRequest.status.in_(["in_progress", "arrived"])
+        ).update({"status": "cancelled"}, synchronize_session=False)
         db.commit()
         ros_service.cancel_goal()
         return {"message": "Navigation stopped"}

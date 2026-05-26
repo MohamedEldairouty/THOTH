@@ -1,7 +1,5 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter
 
-from app.database import get_db
 from app.schemas.robot import RobotStatusOut
 from app.services.robot_service import RobotService
 from app.services import ros_service
@@ -10,8 +8,8 @@ router = APIRouter()
 
 
 @router.get("/status", response_model=RobotStatusOut)
-def get_robot_status(db: Session = Depends(get_db)):
-    return RobotService.get_status(db)
+def get_robot_status():
+    return RobotService.get_status()
 
 
 @router.get("/diagnostics")

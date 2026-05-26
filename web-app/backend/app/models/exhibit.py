@@ -40,4 +40,3 @@ class Exhibit(Base):
 
     category: Mapped["Category"] = relationship(back_populates="exhibits")
     hall: Mapped["Hall"] = relationship(back_populates="exhibits")
-    media: Mapped[list["Media"]] = relationship(back_populates="exhibit")

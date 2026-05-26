@@ -96,9 +96,14 @@ export default function ExhibitDetailPage() {
   }, [lang])
 
   const inTour = tourRun?.status === 'moving' || tourRun?.status === 'arrived'
-  const isMyTarget = navState?.active && Number(id) === navState.exhibit_id
-  const someoneElseIsTarget = navState?.active && !isMyTarget
-  const buttonDisabled = navigating || inTour || !!someoneElseIsTarget || !!isMyTarget
+  // Only treat a single-exhibit nav as "blocking" while it's still moving.
+  // Once the robot has arrived, the visitor is free to pick a new destination —
+  // we just don't bother flipping the "arrived" row to cancelled until they
+  // start a new nav (NavigationService.start() does that).
+  const navInProgress = navState?.active && navState.status === 'in_progress'
+  const isMyTarget = !!navInProgress && Number(id) === navState!.exhibit_id
+  const someoneElseIsTarget = !!navInProgress && !isMyTarget
+  const buttonDisabled = navigating || inTour || someoneElseIsTarget || isMyTarget
 
   const handleNavigate = async () => {
     if (!exhibit || buttonDisabled) return
@@ -183,7 +188,7 @@ export default function ExhibitDetailPage() {
               ⓘ {t.onTourMsg}
             </div>
           )}
-          {someoneElseIsTarget && (
+          {someoneElseIsTarget && navInProgress && (
             <div className="mb-6 px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-400/5 text-blue-200 text-sm">
               ⓘ THOTH is currently navigating to {navState!.exhibit_title}.
             </div>

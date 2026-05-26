@@ -11,7 +11,6 @@ from app.database import SessionLocal
 from app.models.category import Category
 from app.models.hall import Hall
 from app.models.exhibit import Exhibit
-from app.models.robot import RobotStatus
 
 
 def seed():
@@ -94,10 +93,6 @@ def seed():
             ),
         ]
         db.add_all(exhibits)
-
-        # Initial robot status
-        robot = RobotStatus(status="idle", battery=87.5, current_x=10.0, current_y=10.0)
-        db.add(robot)
 
         db.commit()
         print(f"Seeded {len(categories)} categories, {len(halls)} halls, {len(exhibits)} exhibits.")

@@ -47,13 +47,10 @@ export interface ChatResponse {
 }
 
 export interface RobotStatus {
-  id: number
-  status: 'idle' | 'navigating' | 'charging'
-  battery: number
-  current_hall_id: number | null
+  /** Live snapshot from the ROS bridge — not persisted. */
+  status: string
   current_x: number
   current_y: number
-  updated_at: string
 }
 
 export interface NavigationRequest {

@@ -3,14 +3,10 @@ from pydantic import BaseModel
 
 
 class RobotStatusOut(BaseModel):
-    id: int
+    """Live pose + status from the ROS bridge — not persisted."""
     status: str
-    battery: float
-    current_hall_id: int | None
     current_x: float
     current_y: float
-    updated_at: datetime
-    model_config = {"from_attributes": True}
 
 
 class NavigationStartRequest(BaseModel):

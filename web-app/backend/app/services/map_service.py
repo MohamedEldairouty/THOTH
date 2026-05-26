@@ -9,7 +9,6 @@ import yaml
 from sqlalchemy.orm import Session
 
 from app.models.exhibit import Exhibit
-from app.models.robot import RobotStatus
 
 
 # ──────────────────────────────────────────────────────────────
@@ -113,14 +112,15 @@ class MapService:
 
     @staticmethod
     def get_map_overview(db: Session) -> dict:
-        robot = db.query(RobotStatus).first()
+        from app.services import ros_service
+        x, y, _yaw = ros_service.get_pose()
         return {
             "map_image_url": MAP_IMAGE_URL,
             "map_config": _load_map_config(),
             "robot": {
-                "x": robot.current_x if robot else 0.0,
-                "y": robot.current_y if robot else 0.0,
-                "status": robot.status if robot else "offline",
+                "x": x,
+                "y": y,
+                "status": ros_service.get_status(),
             },
         }
 
