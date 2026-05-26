@@ -134,17 +134,27 @@ export default function TourRunPage() {
   const [terminal, setTerminal] = useState<'completed' | 'cancelled' | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Tracks whether the component is still mounted. Async work that resolves
+  // after unmount (e.g. a narration fetch from the language picker) must
+  // skip playAudio to avoid an orphaned <audio> playing on the next page.
+  const mountedRef = useRef(true)
 
   const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.src = ''
+      audioRef.current.onplay = null
+      audioRef.current.onpause = null
+      audioRef.current.onended = null
       audioRef.current = null
     }
     setPlaying(false)
   }
 
   const playAudio = (base64: string) => {
+    // Late-arriving callback after the user already left the page — drop it
+    // instead of spawning an Audio element nothing will ever stop.
+    if (!mountedRef.current) return
     stopAudio()
     const el = new Audio(`data:audio/mp3;base64,${base64}`)
     audioRef.current = el
@@ -163,7 +173,9 @@ export default function TourRunPage() {
   }
 
   useEffect(() => { getMapOverview().then(setMap) }, [])
-  useEffect(() => () => stopAudio(), [])
+  // On unmount: mark unmounted FIRST (so any in-flight async callback that
+  // resolves after this skips playAudio), then stop whatever is playing.
+  useEffect(() => () => { mountedRef.current = false; stopAudio() }, [])
 
   // Poll tour state + robot position every 600ms — but stop once terminal
   useEffect(() => {

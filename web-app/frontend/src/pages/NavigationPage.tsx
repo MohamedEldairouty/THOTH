@@ -95,12 +95,23 @@ export default function NavigationPage() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const narratedFor = useRef<number | null>(null)
+  // See TourRunPage — guards against an in-flight narration fetch landing
+  // after the user has navigated away and spawning orphan audio.
+  const mountedRef = useRef(true)
 
   const stopAudio = () => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null }
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+      audioRef.current.onplay = null
+      audioRef.current.onpause = null
+      audioRef.current.onended = null
+      audioRef.current = null
+    }
     setPlaying(false)
   }
   const playAudio = (b64: string) => {
+    if (!mountedRef.current) return
     stopAudio()
     const el = new Audio(`data:audio/mp3;base64,${b64}`)
     audioRef.current = el
@@ -165,7 +176,7 @@ export default function NavigationPage() {
     nav('/exhibits')
   }
 
-  useEffect(() => () => stopAudio(), [])
+  useEffect(() => () => { mountedRef.current = false; stopAudio() }, [])
 
   const cfg = map?.map_config
 
