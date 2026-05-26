@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
-import { getMapOverview, getMapExhibits, getRobotStatus, stopNavigation, getCurrentTourRun } from '../services/api'
-import type { MapOverview, MapExhibitMarker, MapConfig, RobotStatus } from '../types'
+import { getMapOverview, getMapExhibits, getRobotStatus, getCurrentTourRun, getExhibit } from '../services/api'
+import type { MapOverview, MapExhibitMarker, MapConfig, RobotStatus, ExhibitLocalized } from '../types'
 import type { TourRun } from '../services/api'
 
 /** Convert ROS world coordinates (meters) to screen percentages (0..100).
@@ -22,7 +22,16 @@ export default function MapPage() {
   const [markers, setMarkers] = useState<MapExhibitMarker[]>([])
   const [robot, setRobot] = useState<RobotStatus | null>(null)
   const [selected, setSelected] = useState<MapExhibitMarker | null>(null)
+  const [selectedDetail, setSelectedDetail] = useState<ExhibitLocalized | null>(null)
   const [tourRun, setTourRun] = useState<TourRun | null>(null)
+
+  // Fetch the full exhibit (image + era) whenever the user picks a marker.
+  useEffect(() => {
+    if (!selected) { setSelectedDetail(null); return }
+    let alive = true
+    getExhibit(selected.id, lang).then(ex => { if (alive) setSelectedDetail(ex) }).catch(() => {})
+    return () => { alive = false }
+  }, [selected?.id, lang])
 
   useEffect(() => {
     Promise.all([getMapOverview(), getMapExhibits(lang), getRobotStatus(), getCurrentTourRun()]).then(
@@ -156,45 +165,32 @@ export default function MapPage() {
 
         {/* Sidebar */}
         <div className="flex flex-col gap-4">
-          {/* Robot status card */}
-          {robot && (
-            <div className="gem-card p-4">
-              <h3 className="font-display text-gem-gold text-sm mb-3">
-                {lang === 'ar' ? 'حالة الروبوت' : lang === 'fr' ? 'État du robot' : 'Robot Status'}
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gem-muted">Status</span>
-                  <span className={`font-medium capitalize ${robot.status === 'navigating' ? 'text-green-400' : 'text-gem-text'}`}>
-                    {robot.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gem-muted">Battery</span>
-                  <span className="text-gem-text">{robot.battery.toFixed(0)}%</span>
-                </div>
-              </div>
-              {robot.status === 'navigating' && (
-                <button
-                  onClick={() => stopNavigation().then(() => getRobotStatus().then(setRobot))}
-                  className="gem-btn-ghost w-full mt-3 text-sm py-2"
-                >
-                  {lang === 'ar' ? 'إيقاف التنقل' : lang === 'fr' ? 'Arrêter' : 'Stop Navigation'}
-                </button>
-              )}
-            </div>
-          )}
-
           {/* Selected exhibit */}
           {selected ? (
-            <div className="gem-card p-4">
-              <h3 className="font-display text-gem-gold text-sm mb-2">{selected.title}</h3>
-              <p className="text-gem-muted text-xs mb-3">
-                {lang === 'ar' ? 'القاعة' : lang === 'fr' ? 'Salle' : 'Hall'} {selected.hall_id}
-              </p>
-              <Link to={`/exhibits/${selected.id}`} className="gem-btn-primary w-full block text-center text-sm py-2">
-                {lang === 'ar' ? 'عرض التفاصيل' : lang === 'fr' ? 'Voir détails' : 'View Details'}
-              </Link>
+            <div className="gem-card overflow-hidden">
+              {/* Thumbnail (like tour cards) */}
+              <div className="h-40 bg-gem-dark">
+                {selectedDetail?.image_url ? (
+                  <img
+                    src={selectedDetail.image_url}
+                    alt={selected.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-5xl text-gem-gold/20">𓅓</div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className="font-display text-gem-gold text-base mb-2">{selected.title}</h3>
+                {selectedDetail?.era && (
+                  <span className="inline-block text-xs text-gem-muted border border-gem-gold/30 px-2 py-0.5 rounded-full mb-3">
+                    {selectedDetail.era}
+                  </span>
+                )}
+                <Link to={`/exhibits/${selected.id}`} className="gem-btn-primary w-full block text-center text-sm py-2 mt-1">
+                  {lang === 'ar' ? 'عرض التفاصيل' : lang === 'fr' ? 'Voir détails' : 'View Details'}
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="gem-card p-4 text-gem-muted text-sm text-center">

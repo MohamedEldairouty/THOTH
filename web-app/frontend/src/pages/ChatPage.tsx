@@ -19,6 +19,7 @@ const T = {
     recording: 'Listening...',
     error: '⚠ Connection error. Please try again.',
     feelFree: 'Feel free to ask me anything about {name}.',
+    feelFreeGeneral: 'Welcome! Feel free to ask me anything about the Grand Egyptian Museum, our exhibits, or ancient Egyptian history.',
     backTour: '← Back to tour',
     backExhibit: '← Back to exhibit',
     backExhibits: '← Back to exhibits',
@@ -32,6 +33,7 @@ const T = {
     recording: 'جاري الاستماع...',
     error: '⚠ خطأ في الاتصال. حاول مرة أخرى.',
     feelFree: 'لا تتردد في سؤالي عن أي شيء يخص {name}.',
+    feelFreeGeneral: 'أهلاً بك! لا تتردد في سؤالي عن أي شيء يخص المتحف المصري الكبير، معروضاتنا، أو تاريخ مصر القديمة.',
     backTour: '← العودة إلى الجولة',
     backExhibit: '← العودة إلى المعروض',
     backExhibits: '← العودة إلى المعروضات',
@@ -45,6 +47,7 @@ const T = {
     recording: 'Écoute en cours...',
     error: '⚠ Erreur de connexion. Veuillez réessayer.',
     feelFree: 'N\'hésitez pas à me poser toutes vos questions sur {name}.',
+    feelFreeGeneral: 'Bienvenue ! N\'hésitez pas à me poser toutes vos questions sur le Grand Musée Égyptien, nos expositions ou l\'histoire de l\'Égypte ancienne.',
     backTour: '← Retour à la visite',
     backExhibit: '← Retour à l\'exposition',
     backExhibits: '← Retour aux expositions',
@@ -78,14 +81,18 @@ export default function ChatPage() {
     setMessages([])           // clear when lang or exhibit changes
     setSessionId(undefined)
     setExhibitTitle(null)
-    if (exhibitId == null) return
     let alive = true
     ;(async () => {
       try {
-        const ex = await getExhibit(exhibitId, lang)
-        if (!alive) return
-        setExhibitTitle(ex.title)
-        const greeting = t.feelFree.replace('{name}', ex.title)
+        let greeting: string
+        if (exhibitId != null) {
+          const ex = await getExhibit(exhibitId, lang)
+          if (!alive) return
+          setExhibitTitle(ex.title)
+          greeting = t.feelFree.replace('{name}', ex.title)
+        } else {
+          greeting = t.feelFreeGeneral
+        }
         // Generate TTS for the greeting (fire and forget — text is shown
         // immediately; audio attaches when ready)
         const tts = await ttsSay(greeting, lang).catch(() => null)

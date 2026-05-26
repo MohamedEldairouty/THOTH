@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useLanguage } from '../hooks/useLanguage'
 import {
@@ -36,6 +36,12 @@ const T = {
     completed: 'Tour complete. Thank you for visiting!',
     backTour: 'Back to tour menu',
     autoReturn: 'Returning to the main menu in a moment…',
+    completedTitle: 'You have completed your tour!',
+    completedSubtitle: 'We hope you enjoyed your journey through ancient Egypt.',
+    cancelledTitle: 'Tour cancelled',
+    cancelledSubtitle: 'You can start a new tour any time.',
+    startNew: 'Start a new tour',
+    backHome: 'Back to home',
     legendVisited: 'Visited',
     legendCurrent: 'Current',
     legendPending: 'Upcoming',
@@ -61,6 +67,12 @@ const T = {
     completed: 'اكتملت الجولة. شكراً لزيارتك!',
     backTour: 'العودة إلى قائمة الجولات',
     autoReturn: 'العودة إلى القائمة الرئيسية بعد لحظات…',
+    completedTitle: 'لقد أكملت جولتك!',
+    completedSubtitle: 'نأمل أنك استمتعت برحلتك عبر مصر القديمة.',
+    cancelledTitle: 'تم إلغاء الجولة',
+    cancelledSubtitle: 'يمكنك بدء جولة جديدة في أي وقت.',
+    startNew: 'ابدأ جولة جديدة',
+    backHome: 'العودة إلى الرئيسية',
     legendVisited: 'تمت زيارته',
     legendCurrent: 'الحالي',
     legendPending: 'قادم',
@@ -86,6 +98,12 @@ const T = {
     completed: 'Visite terminée. Merci de votre visite !',
     backTour: 'Retour au menu des visites',
     autoReturn: 'Retour au menu principal dans un instant…',
+    completedTitle: 'Vous avez terminé votre visite !',
+    completedSubtitle: 'Nous espérons que vous avez apprécié votre voyage dans l\'Égypte ancienne.',
+    cancelledTitle: 'Visite annulée',
+    cancelledSubtitle: 'Vous pouvez commencer une nouvelle visite à tout moment.',
+    startNew: 'Commencer une nouvelle visite',
+    backHome: 'Retour à l\'accueil',
     legendVisited: 'Visité',
     legendCurrent: 'Actuel',
     legendPending: 'À venir',
@@ -102,8 +120,6 @@ function worldToPercent(wx: number, wy: number, cfg: MapConfig) {
 export default function TourRunPage() {
   const { lang } = useLanguage()
   const t = T[lang]
-  const nav = useNavigate()
-
   const [run, setRun] = useState<TourRun | null | undefined>(undefined)
   const [map, setMap] = useState<MapOv | null>(null)
   const [robot, setRobot] = useState<RobotStatus | null>(null)
@@ -204,13 +220,6 @@ export default function TourRunPage() {
     }
   }, [run?.status])
 
-  // Auto-redirect to /tour AFTER the terminal-state card has been shown
-  useEffect(() => {
-    if (!terminal) return
-    const id = setTimeout(() => nav('/tour'), 4000)
-    return () => clearTimeout(id)
-  }, [terminal])
-
   // Replay narration in a different language than the tour started in
   const replayInLang = async (l: Language) => {
     if (!run || run.status !== 'arrived') return
@@ -249,11 +258,17 @@ export default function TourRunPage() {
     return <div className="text-center text-gem-muted py-20">…</div>
   }
   if (run === null) {
+    // No active tour (e.g., user came back to this URL after finishing).
+    // Treat it like a "tour completed" landing — two clear next steps.
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center animate-fade-in">
-        <div className="text-gem-gold/40 text-5xl mb-4">𓅓</div>
-        <p className="text-gem-text mb-6">{t.none}</p>
-        <Link to="/tour" className="gem-btn-primary">{t.start}</Link>
+        <div className="text-gem-gold text-6xl mb-3">𓋹</div>
+        <h2 className="font-display text-gem-gold text-2xl mb-2">{t.completedTitle}</h2>
+        <p className="text-gem-muted text-sm mb-8 italic">{t.completedSubtitle}</p>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Link to="/tour" className="gem-btn-primary">{t.startNew}</Link>
+          <Link to="/" className="gem-btn-ghost">{t.backHome}</Link>
+        </div>
       </div>
     )
   }
@@ -265,14 +280,20 @@ export default function TourRunPage() {
   // We render based on the *locked* terminal flag (not run.status) so the
   // card stays put even after the backend drops the run from its active list.
   if (terminal) {
+    const isDone = terminal === 'completed'
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center animate-fade-in">
-        <div className="text-gem-gold text-5xl mb-3">{terminal === 'completed' ? '𓋹' : '𓋴'}</div>
+        <div className="text-gem-gold text-6xl mb-3">{isDone ? '𓋹' : '𓋴'}</div>
         <h2 className="font-display text-gem-gold text-2xl mb-2">
-          {terminal === 'completed' ? t.completed : t.cancelled}
+          {isDone ? t.completedTitle : t.cancelledTitle}
         </h2>
-        <p className="text-gem-muted text-sm mb-6 italic">{t.autoReturn}</p>
-        <Link to="/tour" className="gem-btn-primary inline-block">{t.backTour}</Link>
+        <p className="text-gem-muted text-sm mb-8 italic">
+          {isDone ? t.completedSubtitle : t.cancelledSubtitle}
+        </p>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Link to="/tour" className="gem-btn-primary">{t.startNew}</Link>
+          <Link to="/" className="gem-btn-ghost">{t.backHome}</Link>
+        </div>
       </div>
     )
   }

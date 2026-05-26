@@ -69,7 +69,7 @@ class NavigationService:
         """Combined view used by the ExhibitDetailPage to render the
         in-page navigation experience."""
         nav = (db.query(NavigationRequest)
-                 .filter(NavigationRequest.status == "in_progress")
+                 .filter(NavigationRequest.status.in_(["in_progress", "arrived"]))
                  .order_by(NavigationRequest.created_at.desc())
                  .first())
         if not nav:
