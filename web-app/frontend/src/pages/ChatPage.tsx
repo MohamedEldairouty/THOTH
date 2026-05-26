@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
-import { sendChatMessage, sendVoiceMessage, getExhibit } from '../services/api'
+import { sendChatMessage, sendVoiceMessage, getExhibit, ttsSay } from '../services/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -80,12 +80,27 @@ export default function ChatPage() {
     setExhibitTitle(null)
     if (exhibitId == null) return
     let alive = true
-    getExhibit(exhibitId, lang).then(ex => {
-      if (!alive) return
-      setExhibitTitle(ex.title)
-      const greeting = t.feelFree.replace('{name}', ex.title)
-      setMessages([{ role: 'assistant', content: greeting }])
-    }).catch(() => {})
+    ;(async () => {
+      try {
+        const ex = await getExhibit(exhibitId, lang)
+        if (!alive) return
+        setExhibitTitle(ex.title)
+        const greeting = t.feelFree.replace('{name}', ex.title)
+        // Generate TTS for the greeting (fire and forget — text is shown
+        // immediately; audio attaches when ready)
+        const tts = await ttsSay(greeting, lang).catch(() => null)
+        if (!alive) return
+        setMessages([{
+          role: 'assistant',
+          content: greeting,
+          audio_base64: tts?.audio_base64 ?? undefined,
+        }])
+        // Auto-play
+        if (tts?.audio_base64) {
+          setTimeout(() => togglePlay(0, tts.audio_base64!), 50)
+        }
+      } catch { /* ignore */ }
+    })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exhibitId, lang])
@@ -109,27 +124,23 @@ export default function ChatPage() {
   }
 
   const togglePlay = (idx: number, base64: string) => {
-    // Same message — toggle pause/resume
+    // Same message — toggle pause/resume against the actual element
     if (audio?.idx === idx && audioRef.current) {
-      if (audio.paused) {
-        audioRef.current.play().catch(() => {})
-        setAudio({ idx, paused: false })
-      } else {
-        audioRef.current.pause()
-        setAudio({ idx, paused: true })
-      }
+      if (audioRef.current.paused) audioRef.current.play().catch(() => {})
+      else audioRef.current.pause()
       return
     }
     // Different message — stop current, start new
     stopAudio()
     const el = new Audio(`data:audio/mp3;base64,${base64}`)
-    el.onended = () => {
-      audioRef.current = null
-      setAudio(null)
-    }
+    // Bind the play/pause state to the actual audio element so the button
+    // icon always reflects reality (fixes the "reversed" play/pause bug).
+    el.onplay  = () => setAudio({ idx, paused: false })
+    el.onpause = () => setAudio({ idx, paused: true })
+    el.onended = () => { audioRef.current = null; setAudio(null) }
     audioRef.current = el
-    setAudio({ idx, paused: false })
-    el.play().catch(() => setAudio(null))
+    setAudio({ idx, paused: true })   // start as paused; onplay flips to playing
+    el.play().catch(() => setAudio({ idx, paused: true }))
   }
 
   useEffect(() => {

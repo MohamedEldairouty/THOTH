@@ -130,12 +130,16 @@ def advance_to_next(run_id: int, db: Session = Depends(get_db)):
 def get_narration(
     run_id: int,
     with_audio: bool = Query(True),
+    lang: str | None = Query(None, pattern="^(en|ar|fr)$"),
     db: Session = Depends(get_db),
 ):
     """Get the narration text + TTS audio for the exhibit the robot is
-    currently parked at. Returns null until status == 'arrived'."""
-    data = TourService.get_narration(db, run_id, with_audio=with_audio)
-    return data
+    currently parked at. Returns null until status == 'arrived'.
+
+    `lang` overrides the tour's stored language so the visitor can replay
+    the same narration in a different language without changing the tour.
+    """
+    return TourService.get_narration(db, run_id, with_audio=with_audio, lang_override=lang)
 
 
 @router.post("/runs/{run_id}/cancel")

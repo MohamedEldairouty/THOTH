@@ -8,6 +8,7 @@ import ChatPage from '../pages/ChatPage'
 import SettingsPage from '../pages/SettingsPage'
 import TourPage from '../pages/TourPage'
 import TourRunPage from '../pages/TourRunPage'
+import NavigationPage from '../pages/NavigationPage'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="tour" element={<TourPage />} />
         <Route path="tour/run" element={<TourRunPage />} />
+        <Route path="navigate" element={<NavigationPage />} />
       </Route>
     </Routes>
   )

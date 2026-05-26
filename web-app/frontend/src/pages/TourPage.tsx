@@ -22,6 +22,7 @@ const T = {
     customName: 'Custom Tour',
     cancel: 'Clear',
     resume: 'A tour is already running — open it',
+    blocked: 'Finish or cancel the active tour before starting a new one.',
   },
   ar: {
     title: 'ابدأ جولتك',
@@ -36,6 +37,7 @@ const T = {
     customName: 'جولة مخصصة',
     cancel: 'مسح',
     resume: 'هناك جولة قيد التشغيل — افتحها',
+    blocked: 'أنهِ أو ألغِ الجولة الحالية قبل بدء جولة جديدة.',
   },
   fr: {
     title: 'Commencer votre visite',
@@ -50,6 +52,7 @@ const T = {
     customName: 'Visite personnalisée',
     cancel: 'Effacer',
     resume: 'Une visite est déjà en cours — l\'ouvrir',
+    blocked: 'Terminez ou annulez la visite en cours avant d\'en commencer une nouvelle.',
   },
 }
 
@@ -67,7 +70,11 @@ export default function TourPage() {
   useEffect(() => {
     listTours(lang).then(setPresets)
     getExhibits(lang).then(setExhibits)
-    getCurrentTourRun().then(r => setActiveRun(!!r))
+    // Re-poll every 2s so the page enables itself when the previous tour ends.
+    const tick = () => getCurrentTourRun().then(r => setActiveRun(!!r)).catch(() => {})
+    tick()
+    const id = setInterval(tick, 2000)
+    return () => clearInterval(id)
   }, [lang])
 
   const togglePick = (id: number) => {
@@ -117,8 +124,9 @@ export default function TourPage() {
               {p.estimated_minutes && <span>⏱ {p.estimated_minutes} {t.minutes}</span>}
             </div>
             <button
-              className="gem-btn-primary w-full"
-              disabled={busy}
+              className="gem-btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={busy || activeRun}
+              title={activeRun ? t.blocked : ''}
               onClick={() => launchPreset(p.id)}
             >
               {t.start}
@@ -167,8 +175,9 @@ export default function TourPage() {
             </button>
           )}
           <button
-            className="gem-btn-primary"
-            disabled={busy || picked.length === 0}
+            className="gem-btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={busy || picked.length === 0 || activeRun}
+            title={activeRun ? t.blocked : ''}
             onClick={launchCustom}
           >
             {t.start}  ({picked.length})

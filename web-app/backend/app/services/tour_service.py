@@ -216,10 +216,19 @@ class TourService:
     # ── NARRATION ─────────────────────────────────────────────────────
 
     @staticmethod
-    def get_narration(db: Session, run_id: int, with_audio: bool = True) -> dict | None:
+    def get_narration(
+        db: Session,
+        run_id: int,
+        with_audio: bool = True,
+        lang_override: str | None = None,
+    ) -> dict | None:
         """Return the narration text (+ optional TTS audio) for the
         exhibit the robot is currently parked at.
-        Returns None if the run isn't in 'arrived' state."""
+
+        `lang_override` lets the frontend replay the narration in a
+        different language than the tour was started in — without
+        changing the tour's stored language.
+        """
         run = db.query(TourRun).filter(TourRun.id == run_id).first()
         if not run:
             return None
@@ -237,22 +246,26 @@ class TourService:
         if not exhibit:
             return None
 
+        lang = (lang_override or run.language or "en").lower()
+        if lang not in ("en", "ar", "fr"):
+            lang = "en"
+
         has_more_stops = (run.current_stop_index + 1) < len(stops)
-        narration = _build_narration(exhibit, run.language, has_more_stops)
+        narration = _build_narration(exhibit, lang, has_more_stops)
 
         audio_b64 = None
         if with_audio:
             try:
-                audio_b64 = text_to_speech_base64(narration, run.language)
+                audio_b64 = text_to_speech_base64(narration, lang)
             except Exception as e:
                 print(f"[tour] TTS failed: {e}")
 
         return {
             "exhibit_id": exhibit.id,
-            "exhibit_title": getattr(exhibit, f"title_{run.language}", None) or exhibit.title_en,
+            "exhibit_title": getattr(exhibit, f"title_{lang}", None) or exhibit.title_en,
             "narration": narration,
             "has_more_stops": has_more_stops,
-            "language": run.language,
+            "language": lang,
             "audio_base64": audio_b64,
         }
 

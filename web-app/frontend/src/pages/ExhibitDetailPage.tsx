@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import clsx from 'clsx'
+import { useEffect, useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
 import {
-  getExhibit, startNavigation, getNavState, getNavNarration,
-  getCurrentTourRun, stopNavigation,
-  type Narration,
+  getExhibit, startNavigation, getNavState,
+  getCurrentTourRun,
 } from '../services/api'
 import type { ExhibitLocalized, NavState, TourRun } from '../types'
 
@@ -67,30 +65,13 @@ export default function ExhibitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { lang } = useLanguage()
   const t = T[lang]
+  const navigateTo = useNavigate()
 
   const [exhibit, setExhibit] = useState<ExhibitLocalized | null>(null)
   const [loading, setLoading] = useState(true)
   const [navigating, setNavigating] = useState(false)
   const [navState, setNavState] = useState<NavState | null>(null)
   const [tourRun, setTourRun] = useState<TourRun | null>(null)
-  const [narration, setNarration] = useState<Narration | null>(null)
-  const [playing, setPlaying] = useState(false)
-
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const narratedFor = useRef<number | null>(null)
-
-  // ── audio helpers (same pattern as TourRunPage) ─────────────────────
-  const stopAudio = () => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null }
-    setPlaying(false)
-  }
-  const playAudio = (b64: string) => {
-    stopAudio()
-    const el = new Audio(`data:audio/mp3;base64,${b64}`)
-    audioRef.current = el
-    el.onended = () => { audioRef.current = null; setPlaying(false) }
-    el.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
-  }
 
   // Load exhibit details
   useEffect(() => {
@@ -99,70 +80,38 @@ export default function ExhibitDetailPage() {
     getExhibit(Number(id), lang).then(setExhibit).finally(() => setLoading(false))
   }, [id, lang])
 
-  // Poll nav state + active tour so we can disable/enable controls live
+  // Poll nav state + active tour so we can disable controls live
   useEffect(() => {
     let alive = true
     const tick = async () => {
       try {
         const [ns, tr] = await Promise.all([getNavState(lang), getCurrentTourRun()])
         if (!alive) return
-        setNavState(ns)
-        setTourRun(tr)
+        setNavState(ns); setTourRun(tr)
       } catch { /* ignore */ }
     }
     tick()
-    const i = setInterval(tick, 700)
+    const i = setInterval(tick, 1500)
     return () => { alive = false; clearInterval(i) }
   }, [lang])
-
-  // Clean up audio on unmount
-  useEffect(() => () => stopAudio(), [])
-
-  // When THIS exhibit is the active nav target and the robot just arrived,
-  // fetch narration in the current language and auto-play.
-  useEffect(() => {
-    if (!navState?.active) {
-      narratedFor.current = null
-      setNarration(null)
-      return
-    }
-    if (Number(id) !== navState.exhibit_id) return
-    if (navState.status !== 'arrived') {
-      setNarration(null)
-      return
-    }
-    if (narratedFor.current === navState.request_id) return
-    narratedFor.current = navState.request_id
-    let alive = true
-    getNavNarration(navState.request_id, lang, true).then(n => {
-      if (!alive || !n) return
-      setNarration(n)
-      if (n.audio_base64) playAudio(n.audio_base64)
-    }).catch(() => {})
-    return () => { alive = false }
-  }, [navState?.active && navState.status, navState && (navState.active ? navState.request_id : null), id, lang])
 
   const inTour = tourRun?.status === 'moving' || tourRun?.status === 'arrived'
   const isMyTarget = navState?.active && Number(id) === navState.exhibit_id
   const someoneElseIsTarget = navState?.active && !isMyTarget
-  const buttonDisabled = navigating || inTour || someoneElseIsTarget || (isMyTarget === true)
+  const buttonDisabled = navigating || inTour || !!someoneElseIsTarget || !!isMyTarget
 
   const handleNavigate = async () => {
     if (!exhibit || buttonDisabled) return
     setNavigating(true)
     try {
       await startNavigation(exhibit.id, lang)
+      // Move to the dedicated NavigationPage so the visitor follows the
+      // robot on the map + sees the narration there.
+      navigateTo('/navigate')
     } catch (e: any) {
       console.error(e)
-    } finally {
       setNavigating(false)
     }
-  }
-
-  const handleStopNav = async () => {
-    stopAudio()
-    setNarration(null)
-    await stopNavigation()
   }
 
   if (loading) {
@@ -177,10 +126,10 @@ export default function ExhibitDetailPage() {
     )
   }
 
-  // Disabled-reason tooltip for the Navigate button
   const navDisabledReason =
     inTour ? t.onTourMsg
     : someoneElseIsTarget ? `THOTH is navigating to ${navState!.exhibit_title}`
+    : isMyTarget ? 'Already navigating here.'
     : null
 
   return (
@@ -228,70 +177,15 @@ export default function ExhibitDetailPage() {
             </div>
           </div>
 
-          {/* In-tour banner (informational, non-blocking) */}
+          {/* Banners */}
           {inTour && (
             <div className="mb-6 px-4 py-2 rounded-lg border border-gem-gold/30 bg-gem-gold/5 text-gem-gold/80 text-sm">
               ⓘ {t.onTourMsg}
             </div>
           )}
-
-          {/* Inline navigation panel — shown only when robot is navigating to THIS exhibit */}
-          {isMyTarget && navState!.status !== 'cancelled' && (
-            <div className="mb-6 gem-card p-4 border-gem-gold/40 bg-gem-gold/[0.02]">
-              <div className="flex items-center gap-2 mb-3">
-                <div className={clsx(
-                  "w-2 h-2 rounded-full",
-                  navState!.status === 'arrived' ? "bg-gem-gold animate-pulse" : "bg-blue-400 animate-pulse"
-                )} />
-                <span className="text-gem-gold font-display text-sm uppercase tracking-wider">
-                  {navState!.status === 'arrived' ? t.arrived : `${t.heading} ${exhibit.title}`}
-                </span>
-              </div>
-              <p className="text-gem-muted text-sm mb-3">
-                {navState!.status === 'arrived' ? t.arrivedMsg : t.movingMsg}
-              </p>
-
-              {/* Narration (only after arrival) */}
-              {narration && (
-                <div className="mb-3 p-3 rounded border border-gem-gold/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={clsx("w-2 h-2 rounded-full", playing ? "bg-gem-gold animate-pulse" : "bg-gem-gold/40")} />
-                    <span className="text-gem-gold text-xs font-display uppercase tracking-wider">
-                      {t.narrationLabel}
-                    </span>
-                  </div>
-                  <p className="text-gem-text text-sm leading-relaxed mb-2">{narration.narration}</p>
-                  {narration.audio_base64 && (
-                    <button
-                      onClick={() => playing ? stopAudio() : playAudio(narration.audio_base64!)}
-                      className="text-gem-gold/70 hover:text-gem-gold text-xs inline-flex items-center gap-1.5 transition-colors"
-                    >
-                      {playing ? (
-                        <><svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> {t.stopAudio}</>
-                      ) : (
-                        <><svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> {t.replay}</>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2">
-                {navState!.status === 'arrived' && (
-                  <Link
-                    to={`/chat?exhibit=${exhibit.id}&returnTo=exhibit`}
-                    className="gem-btn-ghost text-sm"
-                  >
-                    🎤 {t.askExhibit}
-                  </Link>
-                )}
-                <button
-                  onClick={handleStopNav}
-                  className="text-gem-muted hover:text-red-400 text-xs transition-colors ml-auto"
-                >
-                  ✕ {t.stopNav}
-                </button>
-              </div>
+          {someoneElseIsTarget && (
+            <div className="mb-6 px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-400/5 text-blue-200 text-sm">
+              ⓘ THOTH is currently navigating to {navState!.exhibit_title}.
             </div>
           )}
 

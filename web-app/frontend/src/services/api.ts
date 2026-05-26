@@ -161,7 +161,12 @@ export interface Narration {
   audio_base64: string | null
 }
 
-export const getNarration = (run_id: number, with_audio = true) =>
+export const getNarration = (run_id: number, with_audio = true, lang?: Language) =>
   api.get<Narration | null>(`/tours/runs/${run_id}/narration`, {
-    params: { with_audio },
+    params: { with_audio, ...(lang ? { lang } : {}) },
   }).then(r => r.data)
+
+// Standalone TTS — used by the chat auto-greeting and any UI string
+export const ttsSay = (text: string, language: Language) =>
+  api.post<{ audio_base64: string | null; language: string }>('/chat/tts', { text, language })
+    .then(r => r.data)

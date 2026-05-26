@@ -7,7 +7,13 @@ import {
   getMapOverview, getRobotStatus, getNarration,
   type TourRun, type MapOverview as MapOv, type Narration,
 } from '../services/api'
-import type { RobotStatus, MapConfig } from '../types'
+import type { RobotStatus, MapConfig, Language } from '../types'
+
+// Module-level remember-set: if the user opens the chat page and comes back,
+// we must NOT replay the arrival narration. Component refs are reset on
+// unmount, so we persist the stamp here for the lifetime of the page load.
+const narratedStamps = new Set<string>()
+const stampKey = (runId: number, index: number) => `${runId}:${index}`
 
 const T = {
   en: {
@@ -103,10 +109,15 @@ export default function TourRunPage() {
   const [robot, setRobot] = useState<RobotStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [narration, setNarration] = useState<Narration | null>(null)
+  const [narrationLang, setNarrationLang] = useState<Language>(lang)
   const [playing, setPlaying] = useState(false)
 
+  // Terminal-state lock: once the tour completes/cancels we freeze the UI
+  // so the celebration card doesn't flash and disappear when the backend
+  // drops the run from its "active" view.
+  const [terminal, setTerminal] = useState<'completed' | 'cancelled' | null>(null)
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const lastNarratedStop = useRef<{ runId: number; index: number } | null>(null)
 
   const stopAudio = () => {
     if (audioRef.current) {
@@ -121,20 +132,39 @@ export default function TourRunPage() {
     stopAudio()
     const el = new Audio(`data:audio/mp3;base64,${base64}`)
     audioRef.current = el
+    el.onplay = () => setPlaying(true)
+    el.onpause = () => setPlaying(false)
     el.onended = () => { audioRef.current = null; setPlaying(false) }
-    el.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    el.play().catch(() => setPlaying(false))
+  }
+  const toggleAudio = () => {
+    if (!audioRef.current) {
+      if (narration?.audio_base64) playAudio(narration.audio_base64)
+      return
+    }
+    if (playing) audioRef.current.pause()
+    else audioRef.current.play().catch(() => {})
   }
 
   useEffect(() => { getMapOverview().then(setMap) }, [])
   useEffect(() => () => stopAudio(), [])
 
-  // Poll tour state + robot position every 600ms
+  // Poll tour state + robot position every 600ms — but stop once terminal
   useEffect(() => {
+    if (terminal) return
     let alive = true
     const tick = async () => {
       try {
         const [r, p] = await Promise.all([getCurrentTourRun(), getRobotStatus()])
         if (!alive) return
+
+        // Lock terminal state as soon as we see it once
+        if (r && (r.status === 'completed' || r.status === 'cancelled')) {
+          setTerminal(r.status)
+          setRun(r)
+          setRobot(p)
+          return
+        }
         setRun(r)
         setRobot(p)
       } catch { /* ignore */ }
@@ -142,19 +172,23 @@ export default function TourRunPage() {
     tick()
     const id = setInterval(tick, 600)
     return () => { alive = false; clearInterval(id) }
-  }, [])
+  }, [terminal])
 
-  // On arrival at a new stop, fetch + auto-play narration (in current language)
+  // Keep narration language in sync with UI language (until user overrides)
+  useEffect(() => { setNarrationLang(lang) }, [lang])
+
+  // On arrival at a NEW stop, fetch + auto-play narration in narrationLang.
+  // narratedStamps is module-scoped so navigating to /chat and back doesn't
+  // replay the narration when the component re-mounts.
   useEffect(() => {
     if (!run || run.status !== 'arrived') return
-    const stamp = { runId: run.id, index: run.current_stop_index }
-    const prev = lastNarratedStop.current
-    if (prev && prev.runId === stamp.runId && prev.index === stamp.index) return
-    lastNarratedStop.current = stamp
+    const key = stampKey(run.id, run.current_stop_index)
+    if (narratedStamps.has(key)) return
+    narratedStamps.add(key)
 
     let alive = true
     setNarration(null)
-    getNarration(run.id, true).then(n => {
+    getNarration(run.id, true, narrationLang).then(n => {
       if (!alive || !n) return
       setNarration(n)
       if (n.audio_base64) playAudio(n.audio_base64)
@@ -170,13 +204,23 @@ export default function TourRunPage() {
     }
   }, [run?.status])
 
-  // Auto-redirect to /tour after completed / cancelled (4s grace period)
+  // Auto-redirect to /tour AFTER the terminal-state card has been shown
   useEffect(() => {
-    if (!run) return
-    if (run.status !== 'completed' && run.status !== 'cancelled') return
+    if (!terminal) return
     const id = setTimeout(() => nav('/tour'), 4000)
     return () => clearTimeout(id)
-  }, [run?.status])
+  }, [terminal])
+
+  // Replay narration in a different language than the tour started in
+  const replayInLang = async (l: Language) => {
+    if (!run || run.status !== 'arrived') return
+    setNarrationLang(l)
+    stopAudio()
+    const n = await getNarration(run.id, true, l)
+    if (!n) return
+    setNarration(n)
+    if (n.audio_base64) playAudio(n.audio_base64)
+  }
 
   const handleContinue = async () => {
     if (!run) return
@@ -217,13 +261,15 @@ export default function TourRunPage() {
   const isFinal = run.current_stop_index + 1 >= run.total_stops
   const cfg = map?.map_config
 
-  // Tour finished / cancelled — celebratory card, then auto-redirect
-  if (run.status === 'completed' || run.status === 'cancelled') {
+  // Tour finished / cancelled — celebratory card, then auto-redirect.
+  // We render based on the *locked* terminal flag (not run.status) so the
+  // card stays put even after the backend drops the run from its active list.
+  if (terminal) {
     return (
       <div className="max-w-xl mx-auto px-4 py-20 text-center animate-fade-in">
-        <div className="text-gem-gold text-5xl mb-3">{run.status === 'completed' ? '𓋹' : '𓋴'}</div>
+        <div className="text-gem-gold text-5xl mb-3">{terminal === 'completed' ? '𓋹' : '𓋴'}</div>
         <h2 className="font-display text-gem-gold text-2xl mb-2">
-          {run.status === 'completed' ? t.completed : t.cancelled}
+          {terminal === 'completed' ? t.completed : t.cancelled}
         </h2>
         <p className="text-gem-muted text-sm mb-6 italic">{t.autoReturn}</p>
         <Link to="/tour" className="gem-btn-primary inline-block">{t.backTour}</Link>
@@ -346,21 +392,38 @@ export default function TourRunPage() {
             <>
               {narration && (
                 <div className="gem-card p-4 border-gem-gold/40">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={clsx(
-                      "w-2 h-2 rounded-full",
-                      playing ? "bg-gem-gold animate-pulse" : "bg-gem-gold/40"
-                    )} />
-                    <span className="text-gem-gold text-xs font-display uppercase tracking-wider">
-                      {t.narrationLabel}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={clsx(
+                        "w-2 h-2 rounded-full",
+                        playing ? "bg-gem-gold animate-pulse" : "bg-gem-gold/40"
+                      )} />
+                      <span className="text-gem-gold text-xs font-display uppercase tracking-wider">
+                        {t.narrationLabel}
+                      </span>
+                    </div>
+                    {/* Per-narration language picker — overrides the tour lang */}
+                    <div className="flex gap-1">
+                      {(['en', 'ar', 'fr'] as const).map(l => (
+                        <button key={l}
+                                onClick={() => replayInLang(l)}
+                                className={clsx(
+                                  "text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold transition-colors",
+                                  narrationLang === l
+                                    ? "bg-gem-gold text-gem-navy"
+                                    : "text-gem-gold/60 hover:text-gem-gold border border-gem-gold/30"
+                                )}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <p className="text-gem-text text-sm leading-relaxed mb-3">
                     {narration.narration}
                   </p>
                   {narration.audio_base64 && (
                     <button
-                      onClick={() => playing ? stopAudio() : playAudio(narration.audio_base64!)}
+                      onClick={toggleAudio}
                       className="text-gem-gold/70 hover:text-gem-gold text-xs inline-flex items-center gap-1.5 transition-colors"
                     >
                       {playing ? (
