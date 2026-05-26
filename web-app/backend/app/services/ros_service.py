@@ -237,37 +237,51 @@ def init_eager() -> None:
 
 
 def _ensure_ready_for_navigation() -> None:
-    """Idempotently:
-      1) trigger Nav2 lifecycle STARTUP (no-op if already active),
-      2) publish /initialpose repeatedly until /amcl_pose fires back.
-    Both steps are safe to call regardless of who launched what."""
+    """Make AMCL produce map→odom, fast.
+
+    Earlier this function called _bring_up_nav2() FIRST and waited for it
+    (up to 90s of timeouts if Nav2's lifecycle was already auto-activated by
+    the sim team's launch). That blocked /initialpose publishing entirely.
+
+    New strategy: fire the lifecycle STARTUP in a parallel thread (best
+    effort, ignored if it fails), and IMMEDIATELY start publishing
+    /initialpose every 1s until /amcl_pose comes back. This works whether
+    or not lifecycle bringup was needed.
+    """
     if not USE_ROS or _ros_node is None:
         return
 
-    # Let the sim team's launch settle (Nav2 needs a few seconds for the
-    # action server and lifecycle services to advertise).
-    time.sleep(3.0)
+    # Wait just long enough for AMCL to finish activating + process its
+    # first laser scan. Per the sim-team launch logs, that's <3s.
+    time.sleep(2.0)
 
-    # Step 1 — lifecycle STARTUP (best-effort, ignore failure).
-    try:
-        _bring_up_nav2()
-    except Exception as e:
-        print(f"[ros] _bring_up_nav2 error (continuing anyway): {e}")
+    # Background best-effort lifecycle bringup (no-op if already up).
+    def _try_lifecycle():
+        try:
+            _bring_up_nav2()
+        except Exception as e:
+            print(f"[ros] lifecycle bringup error (ignored): {e}")
+    threading.Thread(target=_try_lifecycle, daemon=True).start()
 
-    # Step 2 — push /initialpose until AMCL acknowledges.
-    # /initialpose uses VOLATILE QoS; the first message is often missed if
-    # AMCL was busy. Retry every 2s for up to ~60s.
-    for attempt in range(1, 31):
+    # Push /initialpose until AMCL acknowledges. /initialpose is VOLATILE
+    # QoS so the first message often gets dropped; we retry until we see
+    # /amcl_pose come back, which tells us AMCL has accepted a pose AND
+    # produced the map→odom transform.
+    for attempt in range(1, 61):  # ~60s total
         if _amcl_pose_seen:
+            print(f"[ros] AMCL ready after {attempt} initialpose attempt(s).")
             return
         _publish_initial_pose(0.0, 0.0, 0.0)
-        print(f"[ros]   waiting for /amcl_pose (attempt {attempt}/30)…")
-        time.sleep(2.0)
+        if attempt % 5 == 1:   # log every ~5s to avoid spam
+            print(f"[ros]   publishing /initialpose, waiting for /amcl_pose "
+                  f"(attempt {attempt}/60)…")
+        time.sleep(1.0)
 
     print("[ros] WARNING: /amcl_pose never arrived after 60s.")
-    print("[ros]          Goals will be rejected. Use the RViz '2D Pose Estimate'")
-    print("[ros]          tool to nudge AMCL, or call POST /api/robot/lifecycle/initial-pose")
-    print("[ros]          with the robot's actual spawn x/y.")
+    print("[ros]          Either the robot spawned far from (0,0) — check")
+    print("[ros]          `ros2 topic echo /odom --once` and call:")
+    print("[ros]          POST /api/robot/lifecycle/initial-pose?x=<X>&y=<Y>")
+    print("[ros]          (replace <X>/<Y> with the actual numbers from /odom).")
 
 
 # ── Nav2 lifecycle bring-up (workaround for the sim team's params) ────────
@@ -279,44 +293,30 @@ _LIFECYCLE_MANAGERS = (
 
 
 def _bring_up_nav2() -> None:
-    """Call STARTUP (command=0) on both lifecycle managers if they're up,
-    otherwise log and retry a few times."""
+    """Try a single STARTUP call on each lifecycle manager. Best-effort —
+    if Nav2's own launch already activated lifecycle (which the sim team's
+    launch does), this will return failure but everything works regardless.
+
+    No retries, short timeouts. We don't want to spend more than ~5s here
+    because the parallel initial-pose loop is doing the real work."""
     if not USE_ROS or _ros_node is None:
         return
 
-    # Give the launch ~3 seconds to spawn the lifecycle services
-    time.sleep(3.0)
-
-    for attempt in range(1, 6):
-        ok_count = 0
-        for svc_name in _LIFECYCLE_MANAGERS:
-            client = _ros_node.create_client(ManageLifecycleNodes, svc_name)
-            if not client.wait_for_service(timeout_sec=2.0):
-                print(f"[ros] {svc_name} not available (attempt {attempt}/5)")
-                continue
-            req = ManageLifecycleNodes.Request()
-            req.command = 0  # STARTUP
-            fut = client.call_async(req)
-            # Block briefly for the response (executor is spinning on another thread)
-            t0 = time.time()
-            while not fut.done() and time.time() - t0 < 8.0:
-                time.sleep(0.1)
-            if fut.done() and fut.result() and fut.result().success:
-                print(f"[ros] {svc_name}  →  STARTUP OK")
-                ok_count += 1
-            else:
-                print(f"[ros] {svc_name}  →  STARTUP failed/timeout")
-
-        if ok_count == len(_LIFECYCLE_MANAGERS):
-            print("[ros] Nav2 lifecycle is active.")
-            return
-        time.sleep(2.0)
-
-    # Not fatal — if the sim team's launch already activated lifecycle, our
-    # STARTUP call will look like a failure but everything is actually fine.
-    # The /initialpose retry loop in _ensure_ready_for_navigation will still
-    # bring AMCL up.
-    print("[ros] Couldn't confirm Nav2 lifecycle bringup — continuing anyway.")
+    for svc_name in _LIFECYCLE_MANAGERS:
+        client = _ros_node.create_client(ManageLifecycleNodes, svc_name)
+        if not client.wait_for_service(timeout_sec=1.0):
+            print(f"[ros] {svc_name}: not available — skipping (sim launch already up?)")
+            continue
+        req = ManageLifecycleNodes.Request()
+        req.command = 0  # STARTUP
+        fut = client.call_async(req)
+        t0 = time.time()
+        while not fut.done() and time.time() - t0 < 2.0:
+            time.sleep(0.05)
+        if fut.done() and fut.result() and fut.result().success:
+            print(f"[ros] {svc_name}: STARTUP OK")
+        else:
+            print(f"[ros] {svc_name}: STARTUP no-op (lifecycle already active)")
 
 
 def _publish_initial_pose(x: float, y: float, yaw: float) -> None:
