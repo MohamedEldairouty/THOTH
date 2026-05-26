@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
-import { sendChatMessage, sendVoiceMessage } from '../services/api'
+import { sendChatMessage, sendVoiceMessage, getExhibit } from '../services/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -10,9 +10,45 @@ interface Message {
 }
 
 const T = {
-  en: { title: 'Ask THOTH', placeholder: 'Ask me anything about the museum...', send: 'Send', welcome: 'How can I help you today?', thinking: 'THOTH is thinking...', recording: 'Listening...', error: '⚠ Connection error. Please try again.' },
-  ar: { title: 'اسأل تحوت', placeholder: 'اسألني أي شيء عن المتحف...', send: 'إرسال', welcome: 'كيف يمكنني مساعدتك اليوم؟', thinking: 'تحوت يفكر...', recording: 'جاري الاستماع...', error: '⚠ خطأ في الاتصال. حاول مرة أخرى.' },
-  fr: { title: 'Discuter avec THOTH', placeholder: 'Posez-moi une question sur le musée...', send: 'Envoyer', welcome: 'Comment puis-je vous aider ?', thinking: 'THOTH réfléchit...', recording: 'Écoute en cours...', error: '⚠ Erreur de connexion. Veuillez réessayer.' },
+  en: {
+    title: 'Ask THOTH',
+    placeholder: 'Ask me anything about the museum...',
+    send: 'Send',
+    welcome: 'How can I help you today?',
+    thinking: 'THOTH is thinking...',
+    recording: 'Listening...',
+    error: '⚠ Connection error. Please try again.',
+    feelFree: 'Feel free to ask me anything about {name}.',
+    backTour: '← Back to tour',
+    backExhibit: '← Back to exhibit',
+    backExhibits: '← Back to exhibits',
+  },
+  ar: {
+    title: 'اسأل تحوت',
+    placeholder: 'اسألني أي شيء عن المتحف...',
+    send: 'إرسال',
+    welcome: 'كيف يمكنني مساعدتك اليوم؟',
+    thinking: 'تحوت يفكر...',
+    recording: 'جاري الاستماع...',
+    error: '⚠ خطأ في الاتصال. حاول مرة أخرى.',
+    feelFree: 'لا تتردد في سؤالي عن أي شيء يخص {name}.',
+    backTour: '← العودة إلى الجولة',
+    backExhibit: '← العودة إلى المعروض',
+    backExhibits: '← العودة إلى المعروضات',
+  },
+  fr: {
+    title: 'Discuter avec THOTH',
+    placeholder: 'Posez-moi une question sur le musée...',
+    send: 'Envoyer',
+    welcome: 'Comment puis-je vous aider ?',
+    thinking: 'THOTH réfléchit...',
+    recording: 'Écoute en cours...',
+    error: '⚠ Erreur de connexion. Veuillez réessayer.',
+    feelFree: 'N\'hésitez pas à me poser toutes vos questions sur {name}.',
+    backTour: '← Retour à la visite',
+    backExhibit: '← Retour à l\'exposition',
+    backExhibits: '← Retour aux expositions',
+  },
 }
 
 export default function ChatPage() {
@@ -20,12 +56,39 @@ export default function ChatPage() {
   const t = T[lang]
   const [searchParams] = useSearchParams()
   const exhibitId = searchParams.get('exhibit') ? Number(searchParams.get('exhibit')) : undefined
+  const returnTo = searchParams.get('returnTo') ?? null   // "tour" | null
 
+  // Where the back button goes + what it says
+  const backLink =
+    returnTo === 'tour'
+      ? { to: '/tour/run', label: t.backTour }
+    : exhibitId != null
+      ? { to: `/exhibits/${exhibitId}`, label: t.backExhibit }
+      : { to: '/exhibits', label: t.backExhibits }
+
+  const [exhibitTitle, setExhibitTitle] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [sessionId, setSessionId] = useState<number | undefined>()
   const [loading, setLoading] = useState(false)
   const [recording, setRecording] = useState(false)
+
+  // ── Auto-greeting on first load when an exhibit is in context ────────
+  useEffect(() => {
+    setMessages([])           // clear when lang or exhibit changes
+    setSessionId(undefined)
+    setExhibitTitle(null)
+    if (exhibitId == null) return
+    let alive = true
+    getExhibit(exhibitId, lang).then(ex => {
+      if (!alive) return
+      setExhibitTitle(ex.title)
+      const greeting = t.feelFree.replace('{name}', ex.title)
+      setMessages([{ role: 'assistant', content: greeting }])
+    }).catch(() => {})
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exhibitId, lang])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -204,9 +267,19 @@ export default function ChatPage() {
     <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-4rem)] animate-fade-in">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-2">
         <img src="/assets/logo.png" alt="THOTH" className="h-10 w-auto" />
         <h1 className="gem-section-title">{t.title}</h1>
+        {exhibitTitle && (
+          <span className="text-gem-muted text-xs italic ml-2">· {exhibitTitle}</span>
+        )}
+      </div>
+
+      {/* Back button — destination depends on where the user came from */}
+      <div className="mb-4">
+        <Link to={backLink.to} className="text-gem-gold/70 hover:text-gem-gold text-xs inline-block transition-colors">
+          {backLink.label}
+        </Link>
       </div>
 
       {/* Messages */}

@@ -63,13 +63,26 @@ export const getRoute = (to_exhibit: number, from_exhibit?: number) =>
 // Robot / Navigation
 export const getRobotStatus = () => api.get<RobotStatus>('/robot/status').then(r => r.data)
 
-export const startNavigation = (exhibit_id: number) =>
-  api.post<NavigationRequest>('/navigation/start', { exhibit_id }).then(r => r.data)
+export const startNavigation = (exhibit_id: number, lang: Language = 'en') =>
+  api.post<NavigationRequest>('/navigation/start',
+    { exhibit_id },
+    { params: { language: lang } },
+  ).then(r => r.data)
 
 export const stopNavigation = () => api.post('/navigation/stop').then(r => r.data)
 
 export const getNavigationStatus = () =>
   api.get<NavigationRequest | null>('/navigation/status').then(r => r.data)
+
+// Rich single-exhibit navigation state for the ExhibitDetailPage inline panel
+import type { NavState } from '../types'
+export const getNavState = (lang: Language) =>
+  api.get<NavState>('/navigation/state', { params: { lang } }).then(r => r.data)
+
+export const getNavNarration = (request_id: number, lang: Language, with_audio = true) =>
+  api.get<Narration | null>('/navigation/narration', {
+    params: { request_id, lang, with_audio },
+  }).then(r => r.data)
 
 // ── Tours ──────────────────────────────────────────────────────────────
 

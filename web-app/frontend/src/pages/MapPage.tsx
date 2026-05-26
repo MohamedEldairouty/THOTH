@@ -37,8 +37,20 @@ export default function MapPage() {
     return () => clearInterval(interval)
   }, [lang])
 
-  const activeTargetId = tourRun?.status === 'moving' || tourRun?.status === 'arrived'
-    ? tourRun.current_exhibit_id : null
+  const inTour = tourRun?.status === 'moving' || tourRun?.status === 'arrived'
+  const activeTargetId = inTour ? tourRun!.current_exhibit_id : null
+  // Map exhibit_id → tour stop state ('visited' | 'current' | 'pending')
+  // so we can color all markers consistently with the TourRunPage.
+  const tourStateById = new Map<number, 'visited' | 'current' | 'pending'>()
+  if (inTour) {
+    for (const s of tourRun!.all_stops) {
+      const state =
+        s.sequence_order < tourRun!.current_stop_index ? 'visited'
+        : s.sequence_order === tourRun!.current_stop_index ? 'current'
+        : 'pending'
+      tourStateById.set(s.exhibit_id, state)
+    }
+  }
 
   const cfg = map?.map_config
 
@@ -71,29 +83,53 @@ export default function MapPage() {
               <rect width="100%" height="100%" fill="url(#grid)" />
             </svg>
 
-            {/* Exhibit markers — positions are in WORLD meters in the DB.
-                The active tour target gets a bigger glow + a pulsing ring. */}
+            {/* Exhibit markers. When a tour is active:
+                  visited  = dim gold w/ check
+                  current  = bright gold + pulse ring + sequence label
+                  pending  = navy w/ gold sequence label
+                Outside a tour: standard gold dots. */}
             {cfg && markers.map(m => {
               const pos = worldToPercent(m.x, m.y, cfg)
+              const tourState = tourStateById.get(m.id)
               const isTarget = m.id === activeTargetId
+              const seq = inTour
+                ? (tourRun!.all_stops.find(s => s.exhibit_id === m.id)?.sequence_order ?? -1) + 1
+                : 0
+
+              // Default (no tour) → simple gold dot
+              if (!inTour) {
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelected(m)}
+                    style={pos}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gem-gold border-2 border-gem-navy hover:scale-150 transition-transform z-10 shadow-[0_0_8px_rgba(201,168,76,0.6)]"
+                    title={m.title}
+                  />
+                )
+              }
+
+              // Tour-aware rendering
               return (
-                <div key={m.id}>
+                <div key={m.id} style={pos} className="absolute -translate-x-1/2 -translate-y-1/2 z-10">
                   {isTarget && (
-                    <div
-                      style={pos}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-2 border-gem-gold animate-ping pointer-events-none z-10"
-                    />
+                    <div className="absolute -inset-2.5 rounded-full border-2 border-gem-gold animate-ping pointer-events-none" />
                   )}
                   <button
                     onClick={() => setSelected(m)}
-                    style={pos}
                     className={
-                      isTarget
-                        ? "absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gem-gold border-2 border-white hover:scale-110 transition-transform z-15 shadow-[0_0_16px_rgba(201,168,76,0.95)]"
-                        : "absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gem-gold border-2 border-gem-navy hover:scale-150 transition-transform z-10 shadow-[0_0_8px_rgba(201,168,76,0.6)]"
+                      tourState === 'current'
+                        ? 'relative w-7 h-7 rounded-full bg-gem-gold border-2 border-gem-navy text-gem-navy text-[10px] font-bold flex items-center justify-center hover:scale-110 transition-transform shadow-[0_0_16px_rgba(201,168,76,0.95)]'
+                      : tourState === 'visited'
+                        ? 'relative w-5 h-5 rounded-full bg-gem-gold/30 border border-gem-gold/60 text-gem-gold text-[10px] font-bold flex items-center justify-center hover:scale-125 transition-transform'
+                      : tourState === 'pending'
+                        ? 'relative w-5 h-5 rounded-full bg-gem-navy border border-gem-gold/60 text-gem-gold/80 text-[10px] font-bold flex items-center justify-center hover:scale-125 transition-transform'
+                      : 'relative w-4 h-4 rounded-full bg-gem-gold/40 border border-gem-gold/40 hover:scale-150 transition-transform'
                     }
-                    title={`${m.title}  (${m.x.toFixed(1)} m, ${m.y.toFixed(1)} m)${isTarget ? '  ← current target' : ''}`}
-                  />
+                    title={`${m.title}${tourState ? ' (' + tourState + ')' : ' (not in current tour)'}`}
+                  >
+                    {tourState === 'visited' ? '✓' : tourState ? seq : ''}
+                  </button>
                 </div>
               )
             })}

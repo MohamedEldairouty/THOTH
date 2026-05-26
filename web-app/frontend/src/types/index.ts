@@ -91,3 +91,78 @@ export interface MapExhibitMarker {
   y: number
   hall_id: number | null
 }
+
+// ── Tour types ─────────────────────────────────────────────────────────
+export interface TourStop {
+  sequence_order: number
+  exhibit_id: number
+  exhibit_title: string
+  exhibit_image: string | null
+  x_position: number | null
+  y_position: number | null
+}
+
+export interface TourSummary {
+  id: number
+  name: string
+  description: string | null
+  estimated_minutes: number | null
+  is_preset: boolean
+  stop_count: number
+  language: string
+}
+
+export interface TourDetail extends TourSummary {
+  stops: TourStop[]
+}
+
+export type TourRunStatus = 'pending' | 'moving' | 'arrived' | 'completed' | 'cancelled'
+
+export interface TourRun {
+  id: number
+  tour_id: number
+  tour_name: string
+  current_stop_index: number
+  total_stops: number
+  status: TourRunStatus
+  language: string
+
+  current_exhibit_id: number | null
+  current_exhibit_title: string | null
+  current_exhibit_image: string | null
+  target_x: number | null
+  target_y: number | null
+
+  next_exhibit_id: number | null
+  next_exhibit_title: string | null
+
+  all_stops: TourStop[]
+
+  started_at: string
+  ended_at: string | null
+}
+
+export interface TourNarration {
+  exhibit_id: number
+  exhibit_title: string
+  narration: string
+  has_more_stops: boolean
+  language: string
+  audio_base64: string | null
+}
+
+// ── Single-exhibit navigation (non-tour) ───────────────────────────────
+export type NavState =
+  | { active: false; blocked_by_tour: boolean }
+  | {
+      active: true
+      blocked_by_tour: false
+      request_id: number
+      exhibit_id: number
+      exhibit_title: string
+      exhibit_image: string | null
+      target_x: number | null
+      target_y: number | null
+      status: 'in_progress' | 'arrived' | 'cancelled'
+      language: string
+    }

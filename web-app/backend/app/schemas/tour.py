@@ -43,6 +43,10 @@ class TourRunOut(BaseModel):
     next_exhibit_id: int | None
     next_exhibit_title: str | None
 
+    # Every stop in the tour with position + per-stop state so the map can
+    # render the full route (visited / current / pending), not just the goal.
+    all_stops: list[TourStopOut] = []
+
     started_at: datetime
     ended_at: datetime | None
 

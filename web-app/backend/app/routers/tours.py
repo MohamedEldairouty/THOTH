@@ -66,6 +66,8 @@ def _run_out(run, db: Session) -> TourRunOut:
         target_y=float(cur_exhibit.y_position) if cur_exhibit and cur_exhibit.y_position is not None else None,
         next_exhibit_id=nxt_exhibit.id if nxt_exhibit else None,
         next_exhibit_title=(getattr(nxt_exhibit, f"title_{lang}", None) or nxt_exhibit.title_en) if nxt_exhibit else None,
+        # Include every stop so the map page can render the whole route
+        all_stops=[_stop_out(s, db, lang) for s in stops],
         started_at=run.started_at,
         ended_at=run.ended_at,
     )

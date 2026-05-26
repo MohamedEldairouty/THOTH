@@ -23,10 +23,17 @@ from app.services.voice_service import text_to_speech_base64
 
 # ── Narration prompts the robot speaks on arrival ──────────────────────
 #
-# Source text = exhibit.full_description_<lang>
-# We append a "questions or continue?" outro based on whether there are
-# more stops in the tour.
+# Three pieces, all in the visitor's selected language:
+#   1) Intro: "We are now standing in front of [exhibit]."
+#   2) Body : the exhibit's full_description_<lang>
+#   3) Outro: a Q&A or "move on" prompt
 #
+_INTRO = {
+    "en": "We are now standing in front of {title}.  ",
+    "ar": "نحن الآن أمام {title}.  ",
+    "fr": "Nous sommes maintenant devant {title}.  ",
+}
+
 _OUTRO = {
     "en": {
         "more": "  Do you have any questions about this exhibit, or shall we move on to the next one?",
@@ -44,10 +51,19 @@ _OUTRO = {
 
 
 def _build_narration(exhibit: Exhibit, lang: str, has_more_stops: bool) -> str:
-    body = getattr(exhibit, f"full_description_{lang}", None) or exhibit.full_description_en or exhibit.short_description_en or ""
+    title = getattr(exhibit, f"title_{lang}", None) or exhibit.title_en
+    intro = _INTRO.get(lang, _INTRO["en"]).format(title=title)
+
+    body = (
+        getattr(exhibit, f"full_description_{lang}", None)
+        or exhibit.full_description_en
+        or exhibit.short_description_en
+        or ""
+    )
+
     outro = _OUTRO.get(lang, _OUTRO["en"])
     tail = outro["more"] if has_more_stops else outro["last"]
-    return (body.strip() + tail).strip()
+    return (intro + body.strip() + tail).strip()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
