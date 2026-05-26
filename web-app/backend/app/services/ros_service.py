@@ -174,8 +174,9 @@ _amcl_pose_seen = False
 
 
 def _init_ros() -> None:
-    """Lazy initializer — spins up an rclpy node in a background thread,
-    then makes sure Nav2's lifecycle is active and an initial pose is set."""
+    """Spin up an rclpy node in a background thread, then in a separate
+    background thread make sure Nav2 lifecycle is active and AMCL has an
+    initial pose. Idempotent — calling twice is a no-op."""
     global _ros_node, _ros_executor, _ros_thread, _action_client, _initial_pose_pub
     if not USE_ROS or _ros_node is not None:
         return
@@ -186,6 +187,8 @@ def _init_ros() -> None:
     # ── subscriptions ────────────────────────────────────────────────────
     def on_pose(msg):
         global _amcl_pose_seen
+        if not _amcl_pose_seen:
+            print("[ros] /amcl_pose received — TF chain is live, ready to navigate.")
         _amcl_pose_seen = True
         p = msg.pose.pose.position
         q = msg.pose.pose.orientation
@@ -218,11 +221,53 @@ def _init_ros() -> None:
     _ros_thread.start()
     print("[ros] bridge ready — subscribing to /amcl_pose, action: /navigate_to_pose")
 
-    # ── bring the navigation lifecycle up if it's not already ──────────
-    # The sim team's nav2_params.yaml doesn't include lifecycle_manager_*
-    # autostart blocks, so bt_navigator / controller_server / planner_server
-    # stay 'inactive' after launch. We trigger STARTUP ourselves here.
-    threading.Thread(target=_bring_up_nav2, daemon=True).start()
+    # Background worker that brings up Nav2 lifecycle (if not already up) AND
+    # — independently — keeps re-publishing /initialpose until AMCL responds.
+    # This is the critical fix: previously the initial pose was gated on a
+    # successful lifecycle STARTUP, so if Nav2's own bringup had already
+    # activated everything, we'd skip the /initialpose publish entirely and
+    # AMCL would sit there forever waiting for one.
+    threading.Thread(target=_ensure_ready_for_navigation, daemon=True).start()
+
+
+def init_eager() -> None:
+    """Public entry point called from FastAPI startup so the bridge is up
+    BEFORE the first user click can reach send_goal."""
+    _init_ros()
+
+
+def _ensure_ready_for_navigation() -> None:
+    """Idempotently:
+      1) trigger Nav2 lifecycle STARTUP (no-op if already active),
+      2) publish /initialpose repeatedly until /amcl_pose fires back.
+    Both steps are safe to call regardless of who launched what."""
+    if not USE_ROS or _ros_node is None:
+        return
+
+    # Let the sim team's launch settle (Nav2 needs a few seconds for the
+    # action server and lifecycle services to advertise).
+    time.sleep(3.0)
+
+    # Step 1 — lifecycle STARTUP (best-effort, ignore failure).
+    try:
+        _bring_up_nav2()
+    except Exception as e:
+        print(f"[ros] _bring_up_nav2 error (continuing anyway): {e}")
+
+    # Step 2 — push /initialpose until AMCL acknowledges.
+    # /initialpose uses VOLATILE QoS; the first message is often missed if
+    # AMCL was busy. Retry every 2s for up to ~60s.
+    for attempt in range(1, 31):
+        if _amcl_pose_seen:
+            return
+        _publish_initial_pose(0.0, 0.0, 0.0)
+        print(f"[ros]   waiting for /amcl_pose (attempt {attempt}/30)…")
+        time.sleep(2.0)
+
+    print("[ros] WARNING: /amcl_pose never arrived after 60s.")
+    print("[ros]          Goals will be rejected. Use the RViz '2D Pose Estimate'")
+    print("[ros]          tool to nudge AMCL, or call POST /api/robot/lifecycle/initial-pose")
+    print("[ros]          with the robot's actual spawn x/y.")
 
 
 # ── Nav2 lifecycle bring-up (workaround for the sim team's params) ────────
@@ -263,17 +308,15 @@ def _bring_up_nav2() -> None:
                 print(f"[ros] {svc_name}  →  STARTUP failed/timeout")
 
         if ok_count == len(_LIFECYCLE_MANAGERS):
-            print("[ros] Nav2 lifecycle is active — navigation goals can now be sent.")
-            # If AMCL is active but we haven't seen /amcl_pose, push a default
-            # initial pose so AMCL produces the map→odom transform.
-            time.sleep(1.0)
-            if not _amcl_pose_seen:
-                _publish_initial_pose(0.0, 0.0, 0.0)
+            print("[ros] Nav2 lifecycle is active.")
             return
         time.sleep(2.0)
 
-    print("[ros] WARNING: Couldn't bring Nav2 lifecycle up after 5 attempts.")
-    print("[ros]          Action goals will likely be rejected by bt_navigator.")
+    # Not fatal — if the sim team's launch already activated lifecycle, our
+    # STARTUP call will look like a failure but everything is actually fine.
+    # The /initialpose retry loop in _ensure_ready_for_navigation will still
+    # bring AMCL up.
+    print("[ros] Couldn't confirm Nav2 lifecycle bringup — continuing anyway.")
 
 
 def _publish_initial_pose(x: float, y: float, yaw: float) -> None:
@@ -319,6 +362,24 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
             with _state.lock:
                 _state.status = "aborted"
             return
+
+    # Critical: bt_navigator rejects goals if there's no map→base_link TF, and
+    # AMCL only produces that transform once it has received an initial pose
+    # AND processed at least one laser scan. Block here briefly until we see
+    # /amcl_pose so the goal won't be rejected for a missing TF.
+    if not _amcl_pose_seen:
+        print("[ros]   /amcl_pose not seen yet — re-publishing /initialpose and waiting…")
+        for _ in range(50):  # up to ~10s
+            if _amcl_pose_seen:
+                break
+            _publish_initial_pose(0.0, 0.0, 0.0)
+            time.sleep(0.2)
+        if not _amcl_pose_seen:
+            print("[ros]   STILL no AMCL pose — TF chain is broken, sending goal will fail")
+            with _state.lock:
+                _state.status = "aborted"
+            return
+        print("[ros]   /amcl_pose is live — proceeding with goal.")
 
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"

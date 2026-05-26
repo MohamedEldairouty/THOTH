@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import exhibits, categories, halls, chat, map, robot, navigation, tours
+from app.services import ros_service
 
 app = FastAPI(
     title="THOTH Smart Museum Guide API",
@@ -30,6 +31,18 @@ app.include_router(map.router, prefix="/api/map", tags=["Map"])
 app.include_router(robot.router, prefix="/api/robot", tags=["Robot"])
 app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
 app.include_router(tours.router, prefix="/api/tours", tags=["Tours"])
+
+
+@app.on_event("startup")
+def _startup_ros_bridge():
+    """Bring the ROS bridge up immediately so AMCL gets its initial pose
+    BEFORE the first user click. Without this, the first tour/navigate-here
+    fired a goal at bt_navigator before AMCL had established map→odom and
+    every goal got rejected for a missing transform."""
+    try:
+        ros_service.init_eager()
+    except Exception as e:
+        print(f"[startup] ros_service.init_eager() failed: {e}")
 
 
 @app.get("/", tags=["Health"])
