@@ -127,8 +127,8 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
         text = result["text"].strip()
         lang = result["language"]
         print(f"[voice] whisper → lang={lang!r}, text={text!r}")
-        if lang not in ("ar", "en", "fr"):
-            lang = "en"
+        # Keep the detected lang as-is — chat_service decides whether to TTS.
+        # Whisper returns ISO-639-1 codes (e.g. 'ar', 'en', 'fr', 'es', 'de'...)
         return text, lang
     finally:
         try:
