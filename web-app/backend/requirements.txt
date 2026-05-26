@@ -13,3 +13,16 @@ openai-whisper
 edge-tts
 soundfile
 pyyaml
+
+# ── Vision (age + mood) ──────────────────────────────────────────────
+# DeepFace ships with TensorFlow and gives both age + 7-class emotion
+# from one analyse() call. Heavy install (~600MB with tf-cpu) but
+# eliminates the need to host & maintain separate model files until the
+# vision team ships their custom SSR-Net + EfficientNet weights.
+# Swap point: env THOTH_VISION_BACKEND=team will load their .keras/.pth
+# from web-app/backend/models/ instead (same VisionService interface).
+deepface>=0.0.93
+tensorflow-cpu>=2.16; sys_platform != "darwin"
+tensorflow>=2.16; sys_platform == "darwin"
+opencv-python-headless>=4.10
+pillow>=10.0

@@ -51,3 +51,12 @@ build/
 # Database
 *.sqlite
 *.db
+
+# Vision model weights — too large for git. Each developer trains
+# locally via web-app/backend/training/, weights live only on disk.
+# The .meta.json sidecars CAN be tracked (tiny, useful provenance).
+web-app/backend/models/*.pth
+web-app/backend/models/*.keras
+web-app/backend/models/*.h5
+web-app/backend/models/*.onnx
+web-app/backend/.venv-train/
