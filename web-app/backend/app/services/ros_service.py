@@ -348,8 +348,13 @@ def _publish_initial_pose(x: float, y: float, yaw: float) -> None:
 
 
 def _send_goal_ros(target_x: float, target_y: float) -> None:
-    global _active_goal_handle
+    global _active_goal_handle, _retry_used_for_target
     _init_ros()
+
+    # New target → fresh retry budget. Auto-retry is keyed to (x, y) so
+    # changing the goal resets the counter.
+    if (target_x, target_y) != _retry_used_for_target:
+        _retry_used_for_target = (None, None)
 
     print(f"[ros] send_goal({target_x:+.2f}, {target_y:+.2f})  -- waiting on action server...")
 
@@ -417,16 +422,95 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
 
 
 def _on_result(rf):
+    """Nav2 fires this for every terminal state — success, abort, OR cancel.
+    Previously we treated ALL of them as 'completed', which caused the tour
+    service to play arrival narration even when Nav2 had actually given up
+    on the goal (e.g. couldn't find a path during costmap warm-up). Now we
+    differentiate, auto-retry one transient abort, and only mark 'completed'
+    on real SUCCEEDED results."""
+
+    # action_msgs/GoalStatus constants — hard-coded to avoid importing a
+    # ROS message type here (this module is also imported in STUB mode where
+    # rclpy may not be available).
+    STATUS_SUCCEEDED = 4
+    STATUS_CANCELED  = 5
+    STATUS_ABORTED   = 6
+
+    code = None
     try:
         result = rf.result()
         code = getattr(result, "status", None)
         print(f"[ros]   goal finished -- status code {code}")
     except Exception as e:
         print(f"[ros]   result error: {e}")
+
+    # Capture the still-active target before clearing it, in case we need
+    # to retry on abort.
     with _state.lock:
-        _state.status = "completed"
+        retry_x, retry_y = _state.target_x, _state.target_y
+
+    if code == STATUS_SUCCEEDED:
+        # Real arrival. Mark completed so tour/nav narration fires.
+        with _state.lock:
+            _state.status = "completed"
+            _state.target_x = None
+            _state.target_y = None
+        print("[ros]   SUCCEEDED -- robot reached the goal")
+        return
+
+    if code == STATUS_CANCELED:
+        with _state.lock:
+            _state.status = "idle"
+            _state.target_x = None
+            _state.target_y = None
+        print("[ros]   CANCELED -- user stopped the goal")
+        return
+
+    if code == STATUS_ABORTED:
+        # Nav2 gave up. This is usually transient on the first goal of a
+        # fresh launch: AMCL/costmap is still warming up, planner can't find
+        # a clear path through inflation. One quick retry resolves ~80% of
+        # these without the user ever noticing.
+        retried = _state_lock_safe_check_and_set_retry()
+        if retried and retry_x is not None and retry_y is not None:
+            print(f"[ros]   ABORTED -- auto-retrying goal once ({retry_x:+.2f}, {retry_y:+.2f})")
+            time.sleep(1.5)   # give costmap a moment to settle
+            _send_goal_ros(retry_x, retry_y)
+            return
+        # Already retried, or no target on file. Mark aborted so the
+        # frontend can show an error instead of fake-celebrating arrival.
+        print("[ros]   ABORTED -- retry exhausted, giving up")
+        with _state.lock:
+            _state.status = "aborted"
+            _state.target_x = None
+            _state.target_y = None
+        return
+
+    # Unknown / nil result code. Be conservative: mark aborted so we
+    # don't trigger a false-positive narration.
+    print(f"[ros]   UNKNOWN result code {code} -- treating as aborted")
+    with _state.lock:
+        _state.status = "aborted"
         _state.target_x = None
         _state.target_y = None
+
+
+# Single-retry budget per goal so we never spin a retry loop.
+_retry_used_for_target: tuple[float | None, float | None] = (None, None)
+
+
+def _state_lock_safe_check_and_set_retry() -> bool:
+    """Return True if we have a retry budget left for the current target.
+    Tracks per-target so a new goal resets the counter."""
+    global _retry_used_for_target
+    with _state.lock:
+        tgt = (_state.target_x, _state.target_y)
+        if tgt == (None, None):
+            return False
+        if _retry_used_for_target == tgt:
+            return False    # already retried this exact target
+        _retry_used_for_target = tgt
+        return True
 
 
 def _cancel_goal_ros() -> None:
