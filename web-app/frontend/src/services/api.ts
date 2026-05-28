@@ -10,7 +10,13 @@ import type {
   MapOverview,
   MapExhibitMarker,
   Language,
+  TourRun as _TourRun,
 } from '../types'
+
+// Re-export shared types so older code that did `import {...} from
+// '../services/api'` keeps working without import-path churn.
+export type { MapOverview, TourStop } from '../types'
+export type TourRun = _TourRun
 
 const api = axios.create({
   baseURL: '/api',
@@ -96,40 +102,14 @@ export interface TourSummary {
   language: string
 }
 
-export interface TourStop {
-  sequence_order: number
-  exhibit_id: number
-  exhibit_title: string
-  exhibit_image: string | null
-  x_position: number | null
-  y_position: number | null
-}
+// TourStop re-exported from '../types' at the top of this file.
 
 export interface TourDetail extends TourSummary {
-  stops: TourStop[]
+  stops: import('../types').TourStop[]
 }
 
-export interface TourRun {
-  id: number
-  tour_id: number
-  tour_name: string
-  current_stop_index: number
-  total_stops: number
-  status: 'pending' | 'moving' | 'arrived' | 'completed' | 'cancelled'
-  language: string
-
-  current_exhibit_id: number | null
-  current_exhibit_title: string | null
-  current_exhibit_image: string | null
-  target_x: number | null
-  target_y: number | null
-
-  next_exhibit_id: number | null
-  next_exhibit_title: string | null
-
-  started_at: string
-  ended_at: string | null
-}
+// TourRun is now re-exported from '../types' (see top of file). The
+// canonical definition there includes `all_stops: TourStop[]`.
 
 export const listTours = (lang: Language) =>
   api.get<TourSummary[]>('/tours/presets', { params: { lang } }).then(r => r.data)

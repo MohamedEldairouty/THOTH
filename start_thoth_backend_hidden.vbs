@@ -1,0 +1,1 @@
+CreateObject("Wscript.Shell").Run "D:\Prog\Thoth\start_thoth_backend.bat", 0, False

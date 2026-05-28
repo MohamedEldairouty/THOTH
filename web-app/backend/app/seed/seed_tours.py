@@ -98,7 +98,7 @@ def main() -> None:
                              .filter(Exhibit.title_en.ilike(f"%{title}%"))
                              .first())
                 if not exhibit:
-                    print(f"  ! Skipped '{title}' — exhibit not found in DB")
+                    print(f"  ! Skipped '{title}' -- exhibit not found in DB")
                     continue
                 db.add(TourStop(
                     tour_id=tour.id,
@@ -107,7 +107,7 @@ def main() -> None:
                 ))
                 stop_count += 1
 
-            print(f"  [+] {p['name_en']:22s}  {stop_count} stops · ~{p['minutes']} min")
+            print(f"  [+] {p['name_en']:22s}  {stop_count} stops * ~{p['minutes']} min")
             created += 1
 
         db.commit()

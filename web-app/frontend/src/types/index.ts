@@ -44,6 +44,7 @@ export interface ChatResponse {
   reply: string
   session_id: number
   language: string
+  audio_base64?: string | null
 }
 
 export interface RobotStatus {

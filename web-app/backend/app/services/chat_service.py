@@ -95,7 +95,18 @@ _HISTORY_LIMIT = 10  # last N user+assistant turns we send to the LLM
 
 class ChatService:
     @staticmethod
-    def handle_message(db: Session, payload: ChatRequest, with_tts: bool = False) -> ChatResponse:
+    def handle_message(
+        db: Session,
+        payload: ChatRequest,
+        with_tts: bool = False,
+        audio_lang: str | None = None,
+    ) -> ChatResponse:
+        """Handle one chat turn.
+
+        `audio_lang` is the language Whisper identified for the visitor's
+        SPOKEN audio. When set, it overrides our text-based heuristic — voice
+        input is the ground truth, not the (sometimes garbled) transcription.
+        """
         # 1) Resolve / create session
         session = None
         if payload.session_id:
@@ -140,14 +151,18 @@ class ChatService:
         db.add(ChatMessage(session_id=session.id, role="user", content=payload.message))
         db.commit()
 
-        # 5) Detect language of THIS message — this drives both the LLM hint
-        #    and the TTS voice. Fall back to payload.language if heuristic
-        #    came up empty.
-        detected = detect_language(payload.message)
+        # 5) Decide which language this turn is in.
+        #    For VOICE input: trust Whisper's audio-side detection — it knows
+        #    the actual language the visitor SPOKE, even if the transcribed
+        #    text looks like garbled French/German/etc. (Whisper sometimes
+        #    mistranscribes Arabic audio into Latin-script gibberish.)
+        #    For TEXT input: fall back to our text heuristic.
+        if audio_lang and audio_lang in ("ar", "en", "fr"):
+            detected = audio_lang
+            print(f"[chat] using whisper audio_lang={audio_lang!r} (text heuristic ignored)")
+        else:
+            detected = detect_language(payload.message)
         if detected == "other":
-            # Pass payload.language as a soft hint to the LLM only when our
-            # heuristic is unsure; the LLM still mirrors the visitor's actual
-            # language because the message itself is in the prompt.
             llm_hint = None
         else:
             llm_hint = detected
@@ -172,18 +187,21 @@ class ChatService:
             session.language = detected
         db.commit()
 
-        # 8) TTS — only for supported languages. We re-detect from the REPLY
-        #    so the voice matches what Gemini actually wrote (more robust
-        #    than trusting `detected` if the LLM ignored our hint).
+        # 8) TTS — pick the voice language.
+        #    Priority: voice input (Whisper's audio_lang) > reply text detect.
+        #    Reason: if the visitor SPOKE Arabic, we want THOTH's voice in
+        #    Arabic even if Gemini occasionally drifts in the reply.
         audio_b64 = None
         reply_lang = detect_language(reply)
+        if audio_lang in ("ar", "en", "fr"):
+            reply_lang = audio_lang
         if with_tts and reply_lang in SUPPORTED_TTS_LANGS:
             try:
                 audio_b64 = text_to_speech_base64(reply, reply_lang)
             except Exception as e:
                 print(f"[chat] TTS error in lang={reply_lang}: {e}")
         elif with_tts:
-            print(f"[chat] skipping TTS — reply language '{reply_lang}' not in {SUPPORTED_TTS_LANGS}")
+            print(f"[chat] skipping TTS -- reply language '{reply_lang}' not in {SUPPORTED_TTS_LANGS}")
 
         return ChatResponse(
             reply=reply,
@@ -207,13 +225,16 @@ class ChatService:
         if not text:
             return ChatResponse(reply="", session_id=session_id or 0, language=whisper_lang)
 
-        # We trust Whisper's lang as the initial hint, but handle_message
-        # will re-detect from the transcribed text anyway, so the two agree
-        # for ar/en/fr and the LLM still mirrors any other language.
+        # Whisper's audio_lang is the ground truth — Whisper transcribes from
+        # the actual sound, not from text guesses. Pass it through as the
+        # authoritative override so the LLM hint + TTS voice always match the
+        # language the visitor SPOKE, even if the transcribed text is garbled.
         payload = ChatRequest(
             message=text,
             session_id=session_id,
             language=whisper_lang,
             exhibit_id=exhibit_id,
         )
-        return ChatService.handle_message(db, payload, with_tts=True)
+        return ChatService.handle_message(
+            db, payload, with_tts=True, audio_lang=whisper_lang,
+        )

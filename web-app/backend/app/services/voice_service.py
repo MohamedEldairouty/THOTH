@@ -84,6 +84,29 @@ VOICES = {
     "fr": "fr-FR-HenriNeural",     # French — male
 }
 
+
+# ── Pronunciation fixes per language ──────────────────────────────────
+# edge-tts reads Arabic without diacritics by guessing vowels. THOTH's
+# Arabic name "تحوت" (Tehot/Tahoot) gets collapsed into "Tut" without
+# diacritic hints. Adding fatha/damma forces the correct pronunciation.
+#
+# Apply these substitutions before sending text to the TTS engine; the
+# visible text shown in the chat UI is NOT changed.
+_PRONUNCIATION_FIXES = {
+    "ar": [
+        ("تحوت", "تَحُوت"),
+        ("توت",  "تَحُوت"),
+    ],
+    "en": [],
+    "fr": [],
+}
+
+
+def _apply_pronunciation_fixes(text: str, language: str) -> str:
+    for src, dst in _PRONUNCIATION_FIXES.get(language, []):
+        text = text.replace(src, dst)
+    return text
+
 _whisper_model = None
 
 
@@ -102,7 +125,7 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
 
     # Guard: empty / near-empty blobs from a too-short recording
     if len(audio_bytes) < 2000:
-        print(f"[voice] rejected — too short")
+        print(f"[voice] rejected -- too short")
         return "", "en"
 
     suffix = ".webm"
@@ -117,7 +140,7 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
             peak = float(_np.max(_np.abs(pcm))) if pcm.size else 0.0
             print(f"[voice] decoded PCM: {pcm.size} samples, peak amplitude={peak:.4f}")
             if peak < 0.005:
-                print("[voice] audio is essentially silent — mic level too low or muted")
+                print("[voice] audio is essentially silent -- mic level too low or muted")
                 return "", "en"
         except Exception as e:
             print(f"[voice] pre-decode failed: {e}")
@@ -126,7 +149,7 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
         result = model.transcribe(tmp_path)
         text = result["text"].strip()
         lang = result["language"]
-        print(f"[voice] whisper → lang={lang!r}, text={text!r}")
+        print(f"[voice] whisper -> lang={lang!r}, text={text!r}")
         # Keep the detected lang as-is — chat_service decides whether to TTS.
         # Whisper returns ISO-639-1 codes (e.g. 'ar', 'en', 'fr', 'es', 'de'...)
         return text, lang
@@ -139,7 +162,10 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
 
 async def _generate_tts(text: str, language: str, output_path: str) -> None:
     voice = VOICES.get(language, VOICES["en"])
-    communicate = edge_tts.Communicate(text, voice)
+    # Pronunciation fixes are applied to the TTS input only; the visible
+    # text shown in the chat UI is the original LLM output.
+    spoken_text = _apply_pronunciation_fixes(text, language)
+    communicate = edge_tts.Communicate(spoken_text, voice)
     await communicate.save(output_path)
 
 

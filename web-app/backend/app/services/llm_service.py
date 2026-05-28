@@ -12,9 +12,29 @@ Two important behaviors that fix earlier bugs:
    with. The system prompt is explicit about this; the caller may also
    pass a `detected_lang` hint to nudge the model.
 """
+import time
+
 from google import genai
 
 from app.config import settings
+
+
+# Errors that are worth a quick automatic retry (Gemini free tier flakes
+# under load — most 503s clear within a couple of seconds).
+_TRANSIENT_ERR_SUBSTRINGS = (
+    "503",
+    "UNAVAILABLE",
+    "overloaded",
+    "RESOURCE_EXHAUSTED",
+    "429",
+    "deadline",
+    "timeout",
+)
+
+
+def _is_transient(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(s.lower() in msg for s in _TRANSIENT_ERR_SUBSTRINGS)
 
 
 SYSTEM_PROMPT = """You are THOTH, a friendly and enthusiastic museum tour guide robot
@@ -34,6 +54,10 @@ Strict rules:
 - Keep answers SHORT — at most 3 sentences.
 - Be warm and make ancient Egyptian history exciting, but don't be cheesy.
 - If you don't know a specific fact, say so honestly instead of inventing.
+- When referring to yourself in Arabic, ALWAYS write your name as
+  "تحوت" (the proper Arabic name of the Egyptian god of wisdom — Thoth).
+  NEVER write "توت" — that is a different word (mulberry) and the TTS
+  voice will mispronounce it as "Tut".
 """
 
 
@@ -93,8 +117,24 @@ def ask_gemini(
 
     full_message = "\n\n".join(parts)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=full_message,
-    )
-    return (response.text or "").strip()
+    # Retry transient 503 / overloaded errors with short exponential backoff.
+    # Gemini's free tier hits capacity walls under load; most go away in
+    # 1-3 seconds. 3 attempts total = up to ~6 s budget — still well under
+    # the browser's request timeout.
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=full_message,
+            )
+            return (response.text or "").strip()
+        except Exception as e:
+            last_exc = e
+            if not _is_transient(e) or attempt == 2:
+                raise
+            backoff = 1.0 * (attempt + 1)   # 1.0, 2.0
+            print(f"[llm] transient error (attempt {attempt+1}/3) -- retrying in {backoff}s: {e}")
+            time.sleep(backoff)
+    # Unreachable, but satisfies the type checker
+    raise last_exc if last_exc else RuntimeError("ask_gemini exhausted retries")

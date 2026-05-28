@@ -36,7 +36,7 @@ def main() -> None:
     DST_DIR.mkdir(parents=True, exist_ok=True)
     img = Image.open(SRC).convert("L")
     w, h = img.size
-    print(f"Source PGM: {w}×{h} pixels")
+    print(f"Source PGM: {w}x{h} pixels")
 
     arr = np.array(img, dtype=np.uint8)
     out = np.zeros((h, w, 4), dtype=np.uint8)

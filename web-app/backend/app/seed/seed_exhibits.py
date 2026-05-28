@@ -208,7 +208,7 @@ def main() -> None:
         print(f"Done. {len(legacy)} legacy removed, {added} added, {updated} updated.")
         print(f"Total exhibits in DB: {db.query(Exhibit).count()}")
         print()
-        print("? = guessed coordinates — verify on Ubuntu with RViz 'Publish Point' then re-run.")
+        print("? = guessed coordinates -- verify on Ubuntu with RViz 'Publish Point' then re-run.")
 
     finally:
         db.close()

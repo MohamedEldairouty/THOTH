@@ -188,7 +188,7 @@ def _init_ros() -> None:
     def on_pose(msg):
         global _amcl_pose_seen
         if not _amcl_pose_seen:
-            print("[ros] /amcl_pose received — TF chain is live, ready to navigate.")
+            print("[ros] /amcl_pose received -- TF chain is live, ready to navigate.")
         _amcl_pose_seen = True
         p = msg.pose.pose.position
         q = msg.pose.pose.orientation
@@ -219,7 +219,7 @@ def _init_ros() -> None:
 
     _ros_thread = threading.Thread(target=spin, daemon=True)
     _ros_thread.start()
-    print("[ros] bridge ready — subscribing to /amcl_pose, action: /navigate_to_pose")
+    print("[ros] bridge ready -- subscribing to /amcl_pose, action: /navigate_to_pose")
 
     # Background worker that brings up Nav2 lifecycle (if not already up) AND
     # — independently — keeps re-publishing /initialpose until AMCL responds.
@@ -278,7 +278,7 @@ def _ensure_ready_for_navigation() -> None:
         time.sleep(1.0)
 
     print("[ros] WARNING: /amcl_pose never arrived after 60s.")
-    print("[ros]          Either the robot spawned far from (0,0) — check")
+    print("[ros]          Either the robot spawned far from (0,0) -- check")
     print("[ros]          `ros2 topic echo /odom --once` and call:")
     print("[ros]          POST /api/robot/lifecycle/initial-pose?x=<X>&y=<Y>")
     print("[ros]          (replace <X>/<Y> with the actual numbers from /odom).")
@@ -305,7 +305,7 @@ def _bring_up_nav2() -> None:
     for svc_name in _LIFECYCLE_MANAGERS:
         client = _ros_node.create_client(ManageLifecycleNodes, svc_name)
         if not client.wait_for_service(timeout_sec=1.0):
-            print(f"[ros] {svc_name}: not available — skipping (sim launch already up?)")
+            print(f"[ros] {svc_name}: not available -- skipping (sim launch already up?)")
             continue
         req = ManageLifecycleNodes.Request()
         req.command = 0  # STARTUP
@@ -351,14 +351,14 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
     global _active_goal_handle
     _init_ros()
 
-    print(f"[ros] send_goal({target_x:+.2f}, {target_y:+.2f})  — waiting on action server…")
+    print(f"[ros] send_goal({target_x:+.2f}, {target_y:+.2f})  -- waiting on action server...")
 
     # Bring lifecycle up again if needed (idempotent — fast no-op if already active)
     if not _action_client.wait_for_server(timeout_sec=2.0):
-        print("[ros]   action server not reachable on first try, triggering Nav2 STARTUP…")
+        print("[ros]   action server not reachable on first try, triggering Nav2 STARTUP...")
         _bring_up_nav2()
         if not _action_client.wait_for_server(timeout_sec=5.0):
-            print("[ros]   STILL not reachable — aborting goal")
+            print("[ros]   STILL not reachable -- aborting goal")
             with _state.lock:
                 _state.status = "aborted"
             return
@@ -368,18 +368,18 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
     # AND processed at least one laser scan. Block here briefly until we see
     # /amcl_pose so the goal won't be rejected for a missing TF.
     if not _amcl_pose_seen:
-        print("[ros]   /amcl_pose not seen yet — re-publishing /initialpose and waiting…")
+        print("[ros]   /amcl_pose not seen yet -- re-publishing /initialpose and waiting...")
         for _ in range(50):  # up to ~10s
             if _amcl_pose_seen:
                 break
             _publish_initial_pose(0.0, 0.0, 0.0)
             time.sleep(0.2)
         if not _amcl_pose_seen:
-            print("[ros]   STILL no AMCL pose — TF chain is broken, sending goal will fail")
+            print("[ros]   STILL no AMCL pose -- TF chain is broken, sending goal will fail")
             with _state.lock:
                 _state.status = "aborted"
             return
-        print("[ros]   /amcl_pose is live — proceeding with goal.")
+        print("[ros]   /amcl_pose is live -- proceeding with goal.")
 
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"
@@ -410,7 +410,7 @@ def _send_goal_ros(target_x: float, target_y: float) -> None:
             with _state.lock:
                 _state.status = "aborted"
             return
-        print(f"[ros]   goal ACCEPTED → robot navigating to ({target_x:+.2f}, {target_y:+.2f})")
+        print(f"[ros]   goal ACCEPTED -> robot navigating to ({target_x:+.2f}, {target_y:+.2f})")
         gh.get_result_async().add_done_callback(_on_result)
 
     fut.add_done_callback(on_response)
@@ -420,7 +420,7 @@ def _on_result(rf):
     try:
         result = rf.result()
         code = getattr(result, "status", None)
-        print(f"[ros]   goal finished — status code {code}")
+        print(f"[ros]   goal finished -- status code {code}")
     except Exception as e:
         print(f"[ros]   result error: {e}")
     with _state.lock:

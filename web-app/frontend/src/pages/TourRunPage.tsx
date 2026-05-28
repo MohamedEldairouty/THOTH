@@ -133,34 +133,37 @@ export default function TourRunPage() {
   // drops the run from its "active" view.
   const [terminal, setTerminal] = useState<'completed' | 'cancelled' | null>(null)
 
+  // Persistent ONE-element audio so mobile (iOS Safari) can autoplay subsequent
+  // narrations after the user's first gesture on this page.
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Tracks whether the component is still mounted. Async work that resolves
-  // after unmount (e.g. a narration fetch from the language picker) must
-  // skip playAudio to avoid an orphaned <audio> playing on the next page.
   const mountedRef = useRef(true)
 
+  const ensureAudio = (): HTMLAudioElement => {
+    if (audioRef.current) return audioRef.current
+    const el = new Audio()
+    el.preload = 'auto'
+    el.addEventListener('play',  () => setPlaying(true))
+    el.addEventListener('pause', () => setPlaying(false))
+    el.addEventListener('ended', () => setPlaying(false))
+    audioRef.current = el
+    return el
+  }
+
   const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = ''
-      audioRef.current.onplay = null
-      audioRef.current.onpause = null
-      audioRef.current.onended = null
-      audioRef.current = null
+    const el = audioRef.current
+    if (el) {
+      el.pause()
+      el.removeAttribute('src')
+      try { el.load() } catch {}
     }
     setPlaying(false)
   }
 
   const playAudio = (base64: string) => {
-    // Late-arriving callback after the user already left the page — drop it
-    // instead of spawning an Audio element nothing will ever stop.
     if (!mountedRef.current) return
-    stopAudio()
-    const el = new Audio(`data:audio/mp3;base64,${base64}`)
-    audioRef.current = el
-    el.onplay = () => setPlaying(true)
-    el.onpause = () => setPlaying(false)
-    el.onended = () => { audioRef.current = null; setPlaying(false) }
+    const el = ensureAudio()
+    el.pause()
+    el.src = `data:audio/mp3;base64,${base64}`
     el.play().catch(() => setPlaying(false))
   }
   const toggleAudio = () => {

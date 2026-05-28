@@ -60,3 +60,6 @@ web-app/backend/models/*.keras
 web-app/backend/models/*.h5
 web-app/backend/models/*.onnx
 web-app/backend/.venv-train/
+
+# Office app lock files (PowerPoint, Word "currently open" markers)
+~$*

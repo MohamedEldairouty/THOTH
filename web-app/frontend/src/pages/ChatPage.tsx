@@ -116,37 +116,64 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
-  // ── Audio playback state (one shared player) ───────────────
+  // ── Audio playback state (ONE shared, persistent player) ────────────
+  // Mobile browsers (especially iOS Safari) only auto-play subsequent audio
+  // if the SAME element was the one a user previously interacted with.
+  // Creating `new Audio()` per message breaks that — so we keep a single
+  // <audio> element alive for the lifetime of the page, swap its src on
+  // each new TTS message, and rely on the gesture from send() / mic-click
+  // to keep it user-permitted.
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Track which message index is currently the active audio, and if paused
+  // Index of the active message + whether currently paused, or null if idle
   const [audio, setAudio] = useState<{ idx: number; paused: boolean } | null>(null)
+  // Tracks which message's src is loaded — needed because state lags onplay
+  const activeIdxRef = useRef<number | null>(null)
+
+  const ensureAudio = (): HTMLAudioElement => {
+    if (audioRef.current) return audioRef.current
+    const el = new Audio()
+    el.preload = 'auto'
+    el.addEventListener('play',  () => {
+      const idx = activeIdxRef.current
+      if (idx != null) setAudio({ idx, paused: false })
+    })
+    el.addEventListener('pause', () => {
+      const idx = activeIdxRef.current
+      if (idx != null) setAudio({ idx, paused: true })
+    })
+    el.addEventListener('ended', () => {
+      activeIdxRef.current = null
+      setAudio(null)
+    })
+    audioRef.current = el
+    return el
+  }
 
   const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = ''
-      audioRef.current = null
+    const el = audioRef.current
+    if (el) {
+      el.pause()
+      // Clear src so the next togglePlay reliably reloads
+      el.removeAttribute('src')
+      try { el.load() } catch {}
     }
+    activeIdxRef.current = null
     setAudio(null)
   }
 
   const togglePlay = (idx: number, base64: string) => {
-    // Same message — toggle pause/resume against the actual element
-    if (audio?.idx === idx && audioRef.current) {
-      if (audioRef.current.paused) audioRef.current.play().catch(() => {})
-      else audioRef.current.pause()
+    const el = ensureAudio()
+    // Same message currently loaded — toggle pause/resume
+    if (activeIdxRef.current === idx && el.src) {
+      if (el.paused) el.play().catch(() => setAudio({ idx, paused: true }))
+      else el.pause()
       return
     }
-    // Different message — stop current, start new
-    stopAudio()
-    const el = new Audio(`data:audio/mp3;base64,${base64}`)
-    // Bind the play/pause state to the actual audio element so the button
-    // icon always reflects reality (fixes the "reversed" play/pause bug).
-    el.onplay  = () => setAudio({ idx, paused: false })
-    el.onpause = () => setAudio({ idx, paused: true })
-    el.onended = () => { audioRef.current = null; setAudio(null) }
-    audioRef.current = el
-    setAudio({ idx, paused: true })   // start as paused; onplay flips to playing
+    // Different message — pause current, swap src, play
+    el.pause()
+    el.src = `data:audio/mp3;base64,${base64}`
+    activeIdxRef.current = idx
+    setAudio({ idx, paused: true })  // optimistic; onplay flips to playing
     el.play().catch(() => setAudio({ idx, paused: true }))
   }
 
@@ -168,6 +195,10 @@ export default function ChatPage() {
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
+    // Materialize the persistent <audio> element INSIDE the user-gesture
+    // (button click). On mobile this is what unlocks subsequent autoplay
+    // when the response arrives async.
+    ensureAudio()
     stopAudio()                       // stop any currently-playing audio
     setInput('')
     setMessages(m => [...m, { role: 'user', content: text }])
@@ -197,6 +228,12 @@ export default function ChatPage() {
 
   const startRecording = async () => {
     console.log('[mic] startRecording called')
+    // Auto-pause any TTS currently playing — visitor wants to talk over THOTH
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause()
+    }
+    // Make sure the persistent audio element exists & is user-permitted
+    ensureAudio()
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setMessages(m => [...m, { role: 'assistant', content: '⚠ Your browser does not support microphone access. Use Chrome, Edge or Firefox on localhost/HTTPS.' }])
