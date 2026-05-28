@@ -1,0 +1,15 @@
+[Unit]
+Description=THOTH FastAPI backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/THOTH/tools/ubuntu/start_thoth_backend.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:%h/THOTH/thoth_backend.log
+StandardError=append:%h/THOTH/thoth_backend.log
+
+[Install]
+WantedBy=default.target

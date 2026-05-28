@@ -4,6 +4,27 @@ Full-stack touchscreen app for the THOTH museum guide.
 
 🌐 **Live demo:** <https://thoth.thoth-gem.com>
 
+🐧 **Ubuntu launchers:** `tools/ubuntu/`  ·  🪟 **Windows launchers:** `tools/windows/`
+
+---
+
+## 🚀 Ubuntu demo day — the only terminal you run manually
+
+Backend + Cloudflare tunnel are systemd services (see `tools/ubuntu/`),
+so the **only** thing left to launch by hand is the sim:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/THOTH/simulation/install/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch simulate_robot_pkg thoth_launch.launch.py
+```
+
+Then in RViz: **2D Pose Estimate** → click the robot's spot. Visitors hit
+<https://thoth.thoth-gem.com> and start tours.
+
+---
+
 - `backend/` — FastAPI + SQLAlchemy + PostgreSQL, also hosts the ROS bridge (rclpy) when running on Linux.
 - `frontend/` — React + Vite + TypeScript + Tailwind. In dev it's served at <http://localhost:5173>; in production it's built into `frontend/dist/` and **served by the backend** on port 8001 so one Cloudflare Tunnel can expose the whole app.
 
@@ -16,6 +37,14 @@ Full-stack touchscreen app for the THOTH museum guide.
 - PostgreSQL 15+ running locally (DB name: `thoth`, see `backend/app/config.py`)
 - ffmpeg on `PATH` (Whisper needs it for voice input)
 - *(Linux only, optional)* ROS 2 Jazzy sourced — for live Nav2 integration
+- *(Linux LIVE only)* the backend venv must be created with
+  `python3 -m venv --system-site-packages .venv` so it can see `rclpy`
+  from `/opt/ros/jazzy/`. A plain venv silently falls back to STUB mode.
+- *(Linux LIVE only)* install Cyclone DDS so the backend matches the sim:
+  `sudo apt install -y ros-jazzy-rmw-cyclonedds-cpp`, then
+  `export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` in **every** terminal
+  that talks ROS (sim, backend, `ros2 …` CLI). Mismatched RMW = no
+  topics, no actions.
 
 ---
 
@@ -85,17 +114,23 @@ The demo machine runs `cloudflared` connecting `thoth.thoth-gem.com` → `localh
 - **Windows** — see `tools/windows/README.md` at the repo root for the
   auto-start `.bat` launchers (uvicorn + cloudflared loops, both wired
   into the Startup folder).
-- **Ubuntu** — see the "Full LIVE stack" section below; both processes
-  become systemd services.
+- **Ubuntu** — see `tools/ubuntu/README.md` at the repo root for the
+  systemd user service (`thoth-backend.service`) + cloudflared system
+  service + the `restart_*.sh` helpers (mirror of the Windows `.bat`s).
 
 ---
 
 ## Full LIVE stack on Ubuntu
 
+> Shell matters: bash → `setup.bash` (as shown). zsh → swap to `setup.zsh`.
+> The `RMW_IMPLEMENTATION` export must come **before** any `ros2` or
+> `uvicorn` invocation so child processes inherit it.
+
 Three terminals:
 
 ```bash
 # T1 — simulation team's launch (Gazebo + Nav2 + map server)
+export TURTLEBOT3_MODEL=waffle
 ros2 launch simulate_robot_pkg thoth_launch.launch.py
 
 # T2 — backend
@@ -130,5 +165,11 @@ Wait for `[ros] /amcl_pose received — TF chain is live, ready to navigate.` in
 - **`ImportError: edge_tts` in sim logs** — that's the sim team's `llm_narration` node, ignore it. Our backend handles narration via its own `voice_service.py`.
 - **`getaddrinfo failed` on `download.pytorch.org`** — flaky DNS. Try `pip install torch` from default PyPI (CPU wheel) or update your DNS to `1.1.1.1`.
 - **Goal `REJECTED` on Ubuntu** — AMCL hasn't published `map → odom` yet. Wait for the "TF chain is live" log line. If it never appears, robot is not at (0,0) — push the real pose via `/api/robot/lifecycle/initial-pose`.
-</content>
-</invoke>
+- **`AttributeError: module 'coverage.types' has no attribute 'Tracer'`
+  on uvicorn startup** — old system `coverage` (e.g. Ubuntu 24.04's
+  7.4.4) leaking into the `--system-site-packages` venv is too old for
+  the installed `numba`. Fix: `pip install -U coverage` *inside the
+  venv* to shadow the system copy.
+- **`source: no such file` / `bad substitution` when sourcing ROS** —
+  shell vs. setup-file mismatch. Zsh shells (`➜` prompt) need
+  `setup.zsh`; bash shells (`$` prompt) need `setup.bash`. Don't mix.
