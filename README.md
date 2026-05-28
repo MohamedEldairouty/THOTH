@@ -178,7 +178,15 @@ arrows are ROS topics (publisher → subscriber).
 
 # 🌐 Live Deployment
 
-The web app runs publicly at **<https://thoth.thoth-gem.com>** 
+The web app runs publicly at **<https://thoth.thoth-gem.com>** — scan the QR below to open it on any phone or tablet.
+
+<p align="center">
+  <a href="https://thoth.thoth-gem.com">
+    <img src="assets/screenshots/WebApp_QR.jpeg" alt="Scan to open thoth.thoth-gem.com" width="220"/>
+  </a>
+  <br/>
+  <em>Scan to launch THOTH on your device</em>
+</p>
 
 The plumbing:
 
