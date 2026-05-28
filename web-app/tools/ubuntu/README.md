@@ -46,9 +46,9 @@ which OS you booted.
 
 5. **Install the backend systemd user service**
    ```bash
-   chmod +x ~/THOTH/tools/ubuntu/*.sh
+   chmod +x ~/THOTH/web-app/tools/ubuntu/*.sh
    mkdir -p ~/.config/systemd/user
-   cp ~/THOTH/tools/ubuntu/thoth-backend.service ~/.config/systemd/user/
+   cp ~/THOTH/web-app/tools/ubuntu/thoth-backend.service ~/.config/systemd/user/
    systemctl --user daemon-reload
    systemctl --user enable --now thoth-backend
    sudo loginctl enable-linger "$USER"   # runs at boot without login
@@ -73,9 +73,9 @@ which OS you booted.
 
 | When | What to run |
 |---|---|
-| Pushed a backend `.py` change | `~/THOTH/tools/ubuntu/restart_backend.sh` |
+| Pushed a backend `.py` change | `~/THOTH/web-app/tools/ubuntu/restart_backend.sh` |
 | Rebuilt the frontend (`npm run build`) | Hard-refresh the browser (Ctrl+F5). No service restart. |
-| Tunnel acts up | `~/THOTH/tools/ubuntu/restart_tunnel.sh` |
+| Tunnel acts up | `~/THOTH/web-app/tools/ubuntu/restart_tunnel.sh` |
 | Something exotic | Both services self-heal via systemd; usually do nothing |
 
 ## Logs

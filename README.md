@@ -168,7 +168,7 @@ arrows are ROS topics (publisher → subscriber).
 | **Frontend**          | React, Vite, TypeScript, Tailwind CSS                        |
 | **Backend**           | FastAPI, Python, Uvicorn                                     |
 | **Database**          | PostgreSQL, SQLAlchemy, Alembic                              |
-| **AI / LLM**          | Google Gemini 2.5 Flash, OpenAI Whisper, edge-tts            |
+| **AI / LLM**          | Google Gemini 2.5 Flash, OpenAI Whisper, ElevenLabs TTS (with edge-tts fallback) |
 | **Vision** (Project 2) | PyTorch (EfficientNet-B0), TensorFlow (SSR-Net), OpenCV     |
 | **Simulation / Nav**  | ROS 2 Jazzy, Gazebo Harmonic, Nav2, rclpy bridge             |
 | **Deployment**        | Cloudflare Tunnel + custom domain (`thoth-gem.com`) for the live public URL, systemd / Windows-service auto-restart |
@@ -199,7 +199,7 @@ The plumbing:
   exposes the whole stack.
 - **Auto-restart everywhere** — backend, tunnel, and PostgreSQL all run as
   services (Windows: `.bat` infinite-loop launchers under
-  `tools/windows/` + Startup folder; Linux: systemd units), so the URL
+  `web-app/tools/windows/` + Startup folder; Linux: systemd units), so the URL
   stays alive 24/7 without anyone watching a terminal.
 
 ---
@@ -211,14 +211,15 @@ THOTH/
 │
 ├── web-app/             # Full-stack touchscreen web application
 │   ├── frontend/        #   React + TypeScript UI
-│   └── backend/         #   FastAPI REST API + ROS bridge + DB layer
+│   ├── backend/         #   FastAPI REST API + ROS bridge + DB layer
+│   └── tools/           #   Demo-machine launchers (Windows .bat, future Linux)
+│       └── windows/
+│       └── ubuntu/
 │
 ├── image-processing/    # Vision team — age + emotion notebooks (Project 2)
 ├── simulation/          # ROS 2 + Gazebo navigation stack (sim team)
 ├── hardware/            # Hardware design + prototype docs
 ├── docs/                # Presentations, reports, architecture diagrams
-├── tools/               # Demo-machine launchers (Windows .bat, Linux)
-│   └── windows/
 ├── assets/              # Logos, screenshots, demo videos
 └── docker-compose.yml   # (legacy) container scaffolding for future use
 ```

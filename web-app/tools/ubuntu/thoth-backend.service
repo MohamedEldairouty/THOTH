@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/THOTH/tools/ubuntu/start_thoth_backend.sh
+ExecStart=%h/THOTH/web-app/tools/ubuntu/start_thoth_backend.sh
 Restart=always
 RestartSec=5
 StandardOutput=append:%h/THOTH/thoth_backend.log

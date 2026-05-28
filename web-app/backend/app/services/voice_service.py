@@ -45,6 +45,17 @@ import edge_tts
 import whisper
 import whisper.audio as _whisper_audio
 
+# ── ElevenLabs (primary TTS). Import is best-effort so the backend still
+# boots if the SDK isn't installed yet. We just fall back to edge-tts in
+# that case.
+try:
+    from elevenlabs import ElevenLabs   # type: ignore
+    _ELEVENLABS_OK = True
+except Exception:
+    _ELEVENLABS_OK = False
+
+from app.config import settings
+
 
 def _patched_load_audio(file: str, sr: int = 16000) -> np.ndarray:
     """Replacement for whisper.audio.load_audio using absolute ffmpeg path."""
@@ -113,9 +124,10 @@ _whisper_model = None
 def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        print("Loading Whisper model... (first time takes ~30s)")
-        _whisper_model = whisper.load_model("base")
-        print("Whisper ready.")
+        size = (settings.WHISPER_MODEL or "base").strip().lower()
+        print(f"Loading Whisper model: {size!r}  (first time downloads up to ~1.5GB)...")
+        _whisper_model = whisper.load_model(size)
+        print(f"Whisper ready ({size}).")
     return _whisper_model
 
 
@@ -160,21 +172,63 @@ def transcribe_audio(audio_bytes: bytes) -> tuple[str, str]:
             pass
 
 
-async def _generate_tts(text: str, language: str, output_path: str) -> None:
+# ──────────────────────────────────────────────────────────────────────
+# ElevenLabs TTS (primary)
+# ──────────────────────────────────────────────────────────────────────
+
+_eleven_client = None
+
+
+def _get_eleven_client():
+    """Lazy-init the ElevenLabs client. Returns None if SDK isn't installed
+    or API key isn't configured — caller falls back to edge-tts."""
+    global _eleven_client
+    if _eleven_client is not None:
+        return _eleven_client
+    if not _ELEVENLABS_OK:
+        return None
+    if not settings.ELEVENLABS_API_KEY:
+        return None
+    _eleven_client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+    print(f"[tts] ElevenLabs ready (voice={settings.ELEVENLABS_VOICE_ID}, model={settings.ELEVENLABS_MODEL})")
+    return _eleven_client
+
+
+def _elevenlabs_tts_bytes(text: str) -> bytes | None:
+    """Synthesize `text` via ElevenLabs and return MP3 bytes, or None on
+    any failure (network, quota, API errors, etc.)."""
+    client = _get_eleven_client()
+    if client is None:
+        return None
+    try:
+        # The SDK returns a streaming iterator of MP3 chunks. Concatenate
+        # them — we need the full payload to base64-encode for the frontend.
+        audio_iter = client.text_to_speech.convert(
+            text=text,
+            voice_id=settings.ELEVENLABS_VOICE_ID,
+            model_id=settings.ELEVENLABS_MODEL,
+            output_format="mp3_44100_128",
+        )
+        return b"".join(audio_iter)
+    except Exception as e:
+        print(f"[tts] ElevenLabs error -- will fall back to edge-tts: {e}")
+        return None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# edge-tts (fallback so the demo never goes silent)
+# ──────────────────────────────────────────────────────────────────────
+
+
+async def _edge_generate_tts(text: str, language: str, output_path: str) -> None:
     voice = VOICES.get(language, VOICES["en"])
-    # Pronunciation fixes are applied to the TTS input only; the visible
-    # text shown in the chat UI is the original LLM output.
-    spoken_text = _apply_pronunciation_fixes(text, language)
-    communicate = edge_tts.Communicate(spoken_text, voice)
+    communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
 
-def _run_tts_in_thread(text: str, language: str, output_path: str) -> None:
-    """Run async edge-tts in a fresh event loop on a new thread.
-
-    Required because text_to_speech_base64 is called from inside FastAPI's
-    running event loop, where asyncio.run() raises RuntimeError.
-    """
+def _run_edge_tts_in_thread(text: str, language: str, output_path: str) -> None:
+    """Run async edge-tts in a fresh event loop on a new thread (FastAPI is
+    already inside an event loop, so asyncio.run() would raise)."""
     import threading
 
     err: list[BaseException] = []
@@ -183,7 +237,7 @@ def _run_tts_in_thread(text: str, language: str, output_path: str) -> None:
         try:
             loop = asyncio.new_event_loop()
             try:
-                loop.run_until_complete(_generate_tts(text, language, output_path))
+                loop.run_until_complete(_edge_generate_tts(text, language, output_path))
             finally:
                 loop.close()
         except BaseException as e:
@@ -198,13 +252,37 @@ def _run_tts_in_thread(text: str, language: str, output_path: str) -> None:
         raise RuntimeError("edge-tts timed out after 30s")
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Public API — used by chat_service / tour_service / navigation_service
+# ──────────────────────────────────────────────────────────────────────
+
+
 def text_to_speech_base64(text: str, language: str) -> str:
-    """Convert text to speech and return base64-encoded MP3."""
+    """Convert text to speech, return base64-encoded MP3.
+
+    Order of operations:
+      1. Apply Arabic-name diacritic fixes (visible text stays unchanged).
+      2. Try ElevenLabs `eleven_multilingual_v2` — a single voice (Bill)
+         handles ar/en/fr and any language the model supports. Used in
+         the AI team's reference implementation under ai-services/.
+      3. If ElevenLabs is unavailable (no key, network error, quota hit),
+         fall back to edge-tts with the language-specific male voice from
+         the VOICES table. The demo never goes silent.
+    """
     if not text or not text.strip():
         return ""
+
+    spoken_text = _apply_pronunciation_fixes(text, language)
+
+    # 1) Primary: ElevenLabs
+    audio_bytes = _elevenlabs_tts_bytes(spoken_text)
+    if audio_bytes:
+        return base64.b64encode(audio_bytes).decode()
+
+    # 2) Fallback: edge-tts (writes to disk, reads it back)
     output_path = os.path.join(tempfile.gettempdir(), f"thoth_tts_{int(time.time() * 1000)}.mp3")
     try:
-        _run_tts_in_thread(text, language, output_path)
+        _run_edge_tts_in_thread(spoken_text, language, output_path)
         with open(output_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     finally:

@@ -11,6 +11,7 @@ python-multipart==0.0.12
 google-genai
 openai-whisper
 edge-tts
+elevenlabs>=1.5
 soundfile
 pyyaml
 

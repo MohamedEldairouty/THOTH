@@ -111,12 +111,12 @@ Now the backend (which mounts `dist/` at startup) serves both API **and** UI on 
 
 The demo machine runs `cloudflared` connecting `thoth.thoth-gem.com` → `localhost:8001`
 
-- **Windows** — see `tools/windows/README.md` at the repo root for the
-  auto-start `.bat` launchers (uvicorn + cloudflared loops, both wired
-  into the Startup folder).
-- **Ubuntu** — see `tools/ubuntu/README.md` at the repo root for the
-  systemd user service (`thoth-backend.service`) + cloudflared system
-  service + the `restart_*.sh` helpers (mirror of the Windows `.bat`s).
+- **Windows** — see `tools/windows/README.md` for the auto-start `.bat`
+  launchers (uvicorn + cloudflared loops, both wired into the Startup
+  folder).
+- **Ubuntu** — see `tools/ubuntu/README.md` for the systemd user
+  service (`thoth-backend.service`) + cloudflared system service + the
+  `restart_*.sh` helpers (mirror of the Windows `.bat`s).
 
 ---
 
