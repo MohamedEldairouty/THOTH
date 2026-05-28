@@ -2,8 +2,10 @@
 
 Full-stack touchscreen app for the THOTH museum guide.
 
+🌐 **Live demo:** <https://thoth.thoth-gem.com>
+
 - `backend/` — FastAPI + SQLAlchemy + PostgreSQL, also hosts the ROS bridge (rclpy) when running on Linux.
-- `frontend/` — React + Vite + TypeScript + Tailwind, served at <http://localhost:5173>.
+- `frontend/` — React + Vite + TypeScript + Tailwind. In dev it's served at <http://localhost:5173>; in production it's built into `frontend/dist/` and **served by the backend** on port 8001 so one Cloudflare Tunnel can expose the whole app.
 
 ---
 
@@ -53,13 +55,38 @@ The backend auto-detects ROS at startup:
 
 ## Frontend
 
+### Dev mode (hot reload, separate port)
+
 ```bash
 cd web-app/frontend
 npm install
 npm run dev -- --host          # --host exposes it on the LAN for phones/tablets
 ```
 
-UI at <http://localhost:5173>.
+UI at <http://localhost:5173>. Vite proxies `/api/*` to the backend on `:8001`.
+
+### Production mode (one port, no Vite)
+
+For demos / deployment, build the React bundle and let the backend serve it:
+
+```bash
+cd web-app/frontend
+npm run build                  # produces frontend/dist/
+```
+
+Now the backend (which mounts `dist/` at startup) serves both API **and** UI on port 8001. <http://localhost:8001> shows the full app. One port, one tunnel — that's how the public URL `thoth.thoth-gem.com` works.
+
+---
+
+## Public URL via Cloudflare Tunnel
+
+The demo machine runs `cloudflared` connecting `thoth.thoth-gem.com` → `localhost:8001`
+
+- **Windows** — see `tools/windows/README.md` at the repo root for the
+  auto-start `.bat` launchers (uvicorn + cloudflared loops, both wired
+  into the Startup folder).
+- **Ubuntu** — see the "Full LIVE stack" section below; both processes
+  become systemd services.
 
 ---
 

@@ -8,7 +8,8 @@
   🤖 Autonomous Robot • 🧠 AI Assistant • 🗺 Interactive Museum Navigation • 🌍 Multilingual Experience
   <br/>
   🎓 <em>Graduation Project — Computer Engineering Department</em>
-  <br/>
+  <br/><br/>
+  🌐 <a href="https://thoth.thoth-gem.com"><strong>Try the Live Web App</strong></a> &nbsp;·&nbsp;
   📄 <a href="https://1drv.ms/p/c/bd8ed2cd16a50bce/IQBYlDNgkJ1pRIw_BMN9P5J8AeVqttAr_z9GDYysugIFq0g?e=kc4d3k">View Graduation Project 1 Final Presentation</a>
 </p>
 
@@ -162,15 +163,36 @@ arrows are ROS topics (publisher → subscriber).
 
 # 🛠️ Technologies Used
 
-| Layer                 | Technologies                          |
-| --------------------- | ------------------------------------- |
-| **Frontend**          | React, Vite, TypeScript, Tailwind CSS |
-| **Backend**           | FastAPI, Python                       |
-| **Database**          | PostgreSQL, SQLAlchemy, Alembic       |
-| **AI / LLM**          | OpenAI, Gemini, Whisper               |
-| **Vision**            | OpenCV, Deep Learning Models          |
-| **Simulation**        | ROS2, Gazebo, Nav2                    |
-| **Future Deployment** | Docker, AWS                           |
+| Layer                 | Technologies                                                 |
+| --------------------- | ------------------------------------------------------------ |
+| **Frontend**          | React, Vite, TypeScript, Tailwind CSS                        |
+| **Backend**           | FastAPI, Python, Uvicorn                                     |
+| **Database**          | PostgreSQL, SQLAlchemy, Alembic                              |
+| **AI / LLM**          | Google Gemini 2.5 Flash, OpenAI Whisper, edge-tts            |
+| **Vision** (Project 2) | PyTorch (EfficientNet-B0), TensorFlow (SSR-Net), OpenCV     |
+| **Simulation / Nav**  | ROS 2 Jazzy, Gazebo Harmonic, Nav2, rclpy bridge             |
+| **Deployment**        | Cloudflare Tunnel + custom domain (`thoth-gem.com`) for the live public URL, systemd / Windows-service auto-restart |
+| **Future**            | Docker, AWS for cloud-hosted backend                         |
+
+---
+
+# 🌐 Live Deployment
+
+The web app runs publicly at **<https://thoth.thoth-gem.com>** 
+
+The plumbing:
+
+- **Custom domain** `thoth-gem.com` registered through Cloudflare.
+- **Cloudflare Tunnel** (`cloudflared`) — a free, persistent reverse tunnel
+  pointing `thoth.thoth-gem.com` → `localhost:8001` on the demo laptop.
+  No port-forwarding, no static IP, survives ISP / Wi-Fi / hotspot changes.
+- **One backend port, both API and UI** — the FastAPI server mounts the
+  built React bundle (`web-app/frontend/dist/`) at `/`, so a single tunnel
+  exposes the whole stack.
+- **Auto-restart everywhere** — backend, tunnel, and PostgreSQL all run as
+  services (Windows: `.bat` infinite-loop launchers under
+  `tools/windows/` + Startup folder; Linux: systemd units), so the URL
+  stays alive 24/7 without anyone watching a terminal.
 
 ---
 
@@ -179,15 +201,18 @@ arrows are ROS topics (publisher → subscriber).
 ```txt
 THOTH/
 │
-├── web-app/           # Full-stack touchscreen web application
-│   ├── frontend/      #   React + TypeScript UI
-│   └── backend/       #   FastAPI REST API & database layer
+├── web-app/             # Full-stack touchscreen web application
+│   ├── frontend/        #   React + TypeScript UI
+│   └── backend/         #   FastAPI REST API + ROS bridge + DB layer
 │
-├── ai-service/        # LLM / STT / TTS integration
-├── simulation/        # ROS2 & Gazebo navigation simulation
-├── docs/              # Architecture diagrams & documentation
-├── assets/            # Logos, screenshots, demo media
-└── docker-compose.yml
+├── image-processing/    # Vision team — age + emotion notebooks (Project 2)
+├── simulation/          # ROS 2 + Gazebo navigation stack (sim team)
+├── hardware/            # Hardware design + prototype docs
+├── docs/                # Presentations, reports, architecture diagrams
+├── tools/               # Demo-machine launchers (Windows .bat, Linux)
+│   └── windows/
+├── assets/              # Logos, screenshots, demo videos
+└── docker-compose.yml   # (legacy) container scaffolding for future use
 ```
 
 ---
@@ -220,11 +245,11 @@ The web application acts as the central interaction layer between:
 ### Main Modules
 
 - 🏠 Home / Welcome Page
-- 📚 Exhibit Browsing
-- 🖼️ Exhibit Details
-- 🗺️ Interactive Museum Map
-- 🤖 AI Chatbot
-- ⚙️ Accessibility & Settings
+- 📚 Exhibit Browsing (search · filter by era / category)
+- 🖼️ Exhibit Details (story, image, Navigate-Here, Ask THOTH)
+- 🗺️ Interactive Museum Map (live robot dot + clickable markers)
+- 🚶 Start Tour — preset and custom multi-stop tours with live narration
+- 🎤 Ask THOTH — multilingual voice + text chat with TTS playback
 
 ---
 
