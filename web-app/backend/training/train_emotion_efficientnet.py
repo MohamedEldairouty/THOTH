@@ -106,6 +106,21 @@ class FER2013FolderDataset(Dataset):
         return self.transform(img), label
 
 
+class _SubsetDS(Dataset):
+    """Module-level so Windows `spawn` workers can pickle it."""
+
+    def __init__(self, samples, transform):
+        self.samples = samples
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        path, label = self.samples[idx]
+        return self.transform(Image.open(path).convert("L")), label
+
+
 def build_transforms():
     train_tf = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
@@ -264,15 +279,6 @@ def main():
     # Build true train + val subsets (val uses eval_tf, not train_tf)
     train_samples = [s for i, s in enumerate(full_train_ds.samples) if not val_mask[i]]
     val_samples   = [s for i, s in enumerate(full_train_ds.samples) if val_mask[i]]
-
-    class _SubsetDS(Dataset):
-        def __init__(self, samples, transform):
-            self.samples = samples
-            self.transform = transform
-        def __len__(self): return len(self.samples)
-        def __getitem__(self, idx):
-            path, label = self.samples[idx]
-            return self.transform(Image.open(path).convert("L")), label
 
     train_ds = _SubsetDS(train_samples, train_tf)
     val_ds   = _SubsetDS(val_samples,   eval_tf)

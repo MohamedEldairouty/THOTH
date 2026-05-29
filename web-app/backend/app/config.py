@@ -20,6 +20,23 @@ class Settings(BaseSettings):
     # "small" gives much better Arabic accuracy than "base" (~460 MB download).
     WHISPER_MODEL: str = "base"
 
+    # ── Vision (age + mood) ──────────────────────────────────────────────
+    # When false, /api/vision/analyze short-circuits to "vision disabled"
+    # and the chat path skips the tone-hint injection. Useful for kiosks
+    # without a camera or privacy-locked deployments.
+    VISION_ENABLED: bool = True
+    # "auto" picks cuda when available, else cpu. Force "cpu" on the demo
+    # laptop if the GPU is busy serving something else.
+    VISION_DEVICE: str = "auto"
+    # Drop profiles older than this many seconds (LLM ignores stale moods).
+    VISION_PROFILE_TTL_S: float = 15.0
+    # Minimum age-bucket / mood softmax confidence to actually trust the
+    # signal. Below this we drop just that half of the hint (or both).
+    # Calibrated against our test accuracies (61% age / 66% mood) so we
+    # don't commit to a wrong tone on a coin-flip prediction.
+    VISION_AGE_CONF_MIN: float = 0.45
+    VISION_MOOD_CONF_MIN: float = 0.45
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property

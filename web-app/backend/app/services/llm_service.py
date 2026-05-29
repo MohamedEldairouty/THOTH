@@ -1,7 +1,7 @@
 """
 LLM wrapper around Gemini.
 
-Two important behaviors that fix earlier bugs:
+Three important behaviors:
 
 1. Conversation memory — we pass the prior turns of the session, so the
    model doesn't re-greet on every reply and can refer to what was said
@@ -11,12 +11,24 @@ Two important behaviors that fix earlier bugs:
    visitor's most recent message, not the language the session started
    with. The system prompt is explicit about this; the caller may also
    pass a `detected_lang` hint to nudge the model.
+
+3. Adaptive tone via vision — when a fresh, high-confidence age/mood
+   profile is available, `build_persona_hint()` translates it into a
+   short instruction in the reply language (EN/AR/FR) and the prompt
+   weaves it in. Low confidence or missing profile → no hint → today's
+   default tone.
 """
 import time
+from typing import Optional, TYPE_CHECKING
 
 from google import genai
 
 from app.config import settings
+
+if TYPE_CHECKING:
+    # Avoid runtime import cycle: vision_service may import llm_service
+    # in the future for diagnostics. TYPE_CHECKING-only is safe.
+    from app.services.vision_service import VisionProfile
 
 
 # Errors that are worth a quick automatic retry (Gemini free tier flakes
@@ -61,6 +73,144 @@ Strict rules:
 """
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Adaptive tone (driven by vision_service)
+# ─────────────────────────────────────────────────────────────────────────
+
+# Multilingual tone snippets. Keep each one SHORT — Gemini follows the
+# spirit, not the letter. Longer snippets just push the model to parrot.
+_AGE_TONE = {
+    "child": {
+        "en": "The visitor is a child (around 8). Use simple, playful words, "
+              "short sentences, and add a touch of wonder.",
+        "ar": "الزائر طفل صغير. استخدم كلمات بسيطة ومرحة وجمل قصيرة وأضف لمسة من الدهشة.",
+        "fr": "Le visiteur est un enfant. Utilise des mots simples, des phrases "
+              "courtes et un ton émerveillé.",
+    },
+    "teen": {
+        "en": "The visitor is a teenager. Be energetic and direct, less formal, "
+              "punchier sentences.",
+        "ar": "الزائر مراهق. كن حيويًا ومباشرًا، أقل رسمية، وجملك قصيرة وحماسية.",
+        "fr": "Le visiteur est un adolescent. Sois énergique, direct, "
+              "phrases courtes et un peu décontracté.",
+    },
+    "adult": {
+        # No special instruction — default tone IS the adult tone. Leaving
+        # this empty keeps the prompt clean when the bucket is "adult".
+        "en": "",
+        "ar": "",
+        "fr": "",
+    },
+    "senior": {
+        "en": "The visitor is an older adult. Speak with calm pacing and a "
+              "respectful tone; avoid slang.",
+        "ar": "الزائر شخص مسنّ. تحدث بإيقاع هادئ ولهجة محترمة، وتجنب العامية.",
+        "fr": "Le visiteur est une personne âgée. Parle posément, sur un ton "
+              "respectueux, sans argot.",
+    },
+}
+
+_MOOD_TONE = {
+    "happy": {
+        "en": "The visitor seems happy — match their energy warmly.",
+        "ar": "يبدو الزائر سعيدًا — جاريه بدفء وحماس.",
+        "fr": "Le visiteur a l'air heureux — accompagne son énergie chaleureusement.",
+    },
+    "surprise": {
+        "en": "The visitor seems surprised or curious — feed that curiosity.",
+        "ar": "يبدو الزائر متفاجئًا أو فضوليًا — أشبع فضوله.",
+        "fr": "Le visiteur a l'air surpris ou curieux — nourris cette curiosité.",
+    },
+    "sad": {
+        "en": "The visitor seems a little down. Be gentle, no exclamation marks. "
+              "You may briefly ask if everything is okay before continuing.",
+        "ar": "يبدو الزائر متضايقًا قليلاً. كن لطيفًا، لا تستخدم علامات تعجب. "
+              "يمكنك أن تسأل باختصار إن كان كل شيء على ما يرام قبل المتابعة.",
+        "fr": "Le visiteur semble un peu triste. Sois doux, pas de points "
+              "d'exclamation. Tu peux brièvement demander si tout va bien avant de continuer.",
+    },
+    "fear": {
+        "en": "The visitor looks uneasy. Speak calmly and reassuringly, "
+              "shorter sentences.",
+        "ar": "يبدو الزائر قلقًا. تحدث بهدوء وطمأنينة وبجمل قصيرة.",
+        "fr": "Le visiteur semble mal à l'aise. Parle calmement, en phrases "
+              "courtes, sur un ton rassurant.",
+    },
+    "angry": {
+        "en": "The visitor seems frustrated. Stay calm, be concise and helpful, "
+              "no jokes.",
+        "ar": "يبدو الزائر منزعجًا. ابقَ هادئًا، وكن مختصرًا ومفيدًا، بدون مزاح.",
+        "fr": "Le visiteur semble agacé. Reste calme, sois concis et utile, "
+              "pas de plaisanteries.",
+    },
+    "disgust": {
+        # Disgust on FER2013 is the noisiest class — fold to neutral guidance.
+        "en": "",
+        "ar": "",
+        "fr": "",
+    },
+    "neutral": {
+        "en": "",
+        "ar": "",
+        "fr": "",
+    },
+}
+
+
+def build_persona_hint(
+    profile: Optional["VisionProfile"],
+    lang: str,
+) -> Optional[str]:
+    """Translate a fresh vision profile into a short tone instruction.
+
+    Rules:
+    - profile=None or face_detected=False           → no hint
+    - source == "disabled"                          → no hint
+    - confidence below settings.VISION_*_CONF_MIN   → drop that half
+    - if both halves drop                           → no hint
+    - lang must be 'en' | 'ar' | 'fr' else default to 'en'
+
+    Returns the joined tone string ready to drop into the system prompt,
+    or None to signal "use the default tone — do not mention the visitor's
+    appearance at all".
+    """
+    if profile is None or not profile.face_detected:
+        return None
+    if profile.source == "disabled":
+        return None
+
+    if lang not in ("en", "ar", "fr"):
+        lang = "en"
+
+    parts: list[str] = []
+
+    # Age half
+    age_ok = (
+        profile.age_group is not None
+        and profile.age_confidence is not None
+        and profile.age_confidence >= settings.VISION_AGE_CONF_MIN
+    )
+    if age_ok:
+        snippet = _AGE_TONE.get(profile.age_group, {}).get(lang, "")
+        if snippet:
+            parts.append(snippet)
+
+    # Mood half
+    mood_ok = (
+        profile.mood is not None
+        and profile.mood_confidence is not None
+        and profile.mood_confidence >= settings.VISION_MOOD_CONF_MIN
+    )
+    if mood_ok:
+        snippet = _MOOD_TONE.get(profile.mood, {}).get(lang, "")
+        if snippet:
+            parts.append(snippet)
+
+    if not parts:
+        return None
+    return " ".join(parts)
+
+
 _client = None
 
 
@@ -78,12 +228,18 @@ def ask_gemini(
     exhibit_context: str | None = None,
     history: list[dict] | None = None,
     detected_lang: str | None = None,
+    persona_hint: str | None = None,
 ) -> str:
     """Ask Gemini for a reply.
 
     history items are {"role": "user"|"assistant", "content": str}, oldest
     first, NOT including the current message. The current message is
     appended last.
+
+    `persona_hint` is the output of build_persona_hint() — a short string
+    in the visitor's language telling THOTH how to adapt tone. Passed as
+    None when vision is off or low-confidence; in that case the system
+    prompt stays exactly as it was before this feature.
     """
     client = _get_client()
 
@@ -91,6 +247,16 @@ def ask_gemini(
     # We use the simpler "single text blob" form Gemini accepts, since our
     # turn count is small and this keeps the call robust across SDK versions.
     parts: list[str] = [SYSTEM_PROMPT]
+
+    if persona_hint:
+        # Important: we tell the model HOW to use the hint (adapt tone) but
+        # NOT to mention the visitor's appearance, age, or mood in the reply.
+        # That would be creepy.
+        parts.append(
+            "Adapt your tone based on this observation about the visitor, "
+            "but NEVER mention their appearance, age, or mood in the reply: "
+            + persona_hint
+        )
 
     if exhibit_context:
         parts.append(

@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
-from app.routers import exhibits, categories, halls, chat, map, robot, navigation, tours
+from app.routers import exhibits, categories, halls, chat, map, robot, navigation, tours, vision
 from app.services import ros_service
 
 app = FastAPI(
@@ -52,6 +52,7 @@ app.include_router(map.router, prefix="/api/map", tags=["Map"])
 app.include_router(robot.router, prefix="/api/robot", tags=["Robot"])
 app.include_router(navigation.router, prefix="/api/navigation", tags=["Navigation"])
 app.include_router(tours.router, prefix="/api/tours", tags=["Tours"])
+app.include_router(vision.router, prefix="/api/vision", tags=["Vision"])
 
 
 @app.on_event("startup")

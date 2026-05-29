@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.chat import ChatSession, ChatMessage
 from app.models.exhibit import Exhibit
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.llm_service import ask_gemini
+from app.services.llm_service import ask_gemini, build_persona_hint
 from app.services.voice_service import text_to_speech_base64
+from app.services import vision_service
 
 
 # ── Language detection ───────────────────────────────────────────────────
@@ -167,6 +168,24 @@ class ChatService:
         else:
             llm_hint = detected
 
+        # 5.5) Adaptive tone — read the latest webcam-derived profile (or
+        #     ROS-pushed profile in Phase F). Stale or low-confidence
+        #     profiles return None and the prompt stays unchanged.
+        persona_hint = None
+        try:
+            profile = vision_service.get_latest_profile()
+            hint_lang = detected if detected in ("en", "ar", "fr") else "en"
+            persona_hint = build_persona_hint(profile, hint_lang)
+            if persona_hint:
+                print(f"[chat] persona_hint (lang={hint_lang}, "
+                      f"src={profile.source}, age={profile.age_group}/"
+                      f"{profile.age_confidence:.2f}, mood={profile.mood}/"
+                      f"{profile.mood_confidence:.2f})")
+        except Exception as e:
+            # Vision should never break chat — degrade gracefully.
+            print(f"[chat] persona hint skipped: {e}")
+            persona_hint = None
+
         # 6) Ask Gemini
         try:
             reply = ask_gemini(
@@ -174,6 +193,7 @@ class ChatService:
                 exhibit_context=exhibit_context,
                 history=history,
                 detected_lang=llm_hint,
+                persona_hint=persona_hint,
             )
         except Exception as e:
             print(f"[chat] LLM error (detected={detected}): {e}")
