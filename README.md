@@ -189,10 +189,8 @@ The web app runs publicly at **<https://thoth.thoth-gem.com>** — scan the QR b
 
 <p align="center">
   <a href="https://thoth.thoth-gem.com">
-    <img src="assets/screenshots/WebApp_QR.jpeg" alt="Scan to open thoth.thoth-gem.com" width="220"/>
+    <img src="assets/screenshots/Web_QR.png" alt="Scan to launch THOTH on your device — thoth.thoth-gem.com" width="640"/>
   </a>
-  <br/>
-  <em>Scan to launch THOTH on your device</em>
 </p>
 
 The plumbing:
