@@ -29,7 +29,9 @@ class Settings(BaseSettings):
     # laptop if the GPU is busy serving something else.
     VISION_DEVICE: str = "auto"
     # Drop profiles older than this many seconds (LLM ignores stale moods).
-    VISION_PROFILE_TTL_S: float = 15.0
+    # Demo-tuned at 30s so the presenter can pose → wait → narrate to the
+    # audience → then send a chat message and still get the right tone.
+    VISION_PROFILE_TTL_S: float = 30.0
     # Minimum age-bucket / mood softmax confidence to actually trust the
     # signal. Below this we drop just that half of the hint (or both).
     # Calibrated against our test accuracies (61% age / 66% mood) so we

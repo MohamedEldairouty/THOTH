@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useLanguage } from '../hooks/useLanguage'
 import { sendChatMessage, sendVoiceMessage, getExhibit, ttsSay } from '../services/api'
+import WebcamCard from '../components/WebcamCard'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -319,7 +320,15 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-4rem)] animate-fade-in">
+    <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-4rem)] animate-fade-in relative">
+
+      {/* Webcam card — vision-driven tone adaptation. Off by default;
+          user clicks to opt in.
+          Desktop/tablet: floats top-right of the chat panel.
+          Phone: tucked above the header so it never covers messages. */}
+      <div className="md:absolute md:top-4 md:right-4 md:w-56 z-20 mb-3 md:mb-0">
+        <WebcamCard />
+      </div>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">

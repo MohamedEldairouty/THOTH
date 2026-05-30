@@ -150,3 +150,34 @@ export const getNarration = (run_id: number, with_audio = true, lang?: Language)
 export const ttsSay = (text: string, language: Language) =>
   api.post<{ audio_base64: string | null; language: string }>('/chat/tts', { text, language })
     .then(r => r.data)
+
+// ── Vision (age + mood) ─────────────────────────────────────────────────
+//
+// The frontend POSTs a JPEG roughly every 3 seconds while the WebcamCard
+// is enabled. The backend never stores the image — only the inferred age /
+// mood profile is cached, and even that respects a short TTL.
+export interface VisionProfile {
+  face_detected: boolean
+  age: number | null
+  age_group: 'child' | 'teen' | 'adult' | 'senior' | null
+  age_confidence: number | null
+  mood: string | null
+  mood_confidence: number | null
+  source: 'local' | 'ros' | 'disabled'
+  ts: number
+  latency_ms: number
+}
+
+export const analyzeVisionFrame = (frame: Blob) => {
+  const form = new FormData()
+  form.append('frame', frame, 'frame.jpg')
+  return api.post<VisionProfile>('/vision/analyze', form).then(r => r.data)
+}
+
+// Just the bit the WebcamCard needs: is vision globally on?
+// Backend toggles via VISION_ENABLED in .env. We hit /diagnostics once
+// when the card mounts and switch UI accordingly.
+export const getVisionEnabled = () =>
+  api.get<{ enabled: boolean }>('/vision/diagnostics')
+    .then(r => !!r.data.enabled)
+    .catch(() => true)  // fail-open: assume enabled if probe fails

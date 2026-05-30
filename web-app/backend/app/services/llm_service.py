@@ -81,67 +81,122 @@ Strict rules:
 # spirit, not the letter. Longer snippets just push the model to parrot.
 _AGE_TONE = {
     "child": {
-        "en": "The visitor is a child (around 8). Use simple, playful words, "
-              "short sentences, and add a touch of wonder.",
-        "ar": "الزائر طفل صغير. استخدم كلمات بسيطة ومرحة وجمل قصيرة وأضف لمسة من الدهشة.",
-        "fr": "Le visiteur est un enfant. Utilise des mots simples, des phrases "
-              "courtes et un ton émerveillé.",
+        # Demo-tuned: deliberately exaggerated so the difference vs the
+        # adult/teen baseline is OBVIOUS in a live presentation. The judge
+        # should hear it within the first sentence.
+        "en": "The visitor is a young child (around 8 years old). Speak like "
+              "an excited kids' TV host. Use VERY short, simple sentences. "
+              "Sprinkle in words like 'wow', 'amazing', 'super cool'. Use "
+              "exclamation marks generously. Compare ancient things to things "
+              "a child knows (e.g. 'as tall as ten kids stacked up!'). Keep "
+              "the WHOLE reply to 2 short sentences max.",
+        "ar": "الزائر طفل صغير في حوالي الثامنة من عمره. تحدث مثل مقدم برامج "
+              "أطفال متحمس! استخدم جملًا قصيرة جدًا وبسيطة. أكثر من كلمات مثل "
+              "'واو!' و'مذهل!' و'رائع جدًا!'. شبّه الأشياء القديمة بأشياء يعرفها "
+              "الطفل. أبقِ الرد كله في جملتين قصيرتين فقط.",
+        "fr": "Le visiteur est un jeune enfant (environ 8 ans). Parle comme "
+              "un animateur d'émission pour enfants enthousiaste ! Phrases "
+              "TRÈS courtes et simples. Utilise des mots comme 'waouh', "
+              "'génial', 'super cool'. Beaucoup de points d'exclamation. "
+              "Compare les choses anciennes à des choses qu'un enfant connaît. "
+              "Maximum 2 phrases courtes pour TOUTE la réponse.",
     },
     "teen": {
-        "en": "The visitor is a teenager. Be energetic and direct, less formal, "
-              "punchier sentences.",
-        "ar": "الزائر مراهق. كن حيويًا ومباشرًا، أقل رسمية، وجملك قصيرة وحماسية.",
-        "fr": "Le visiteur est un adolescent. Sois énergique, direct, "
-              "phrases courtes et un peu décontracté.",
+        "en": "The visitor is a teenager. Speak like a cool older sibling — "
+              "casual, punchy, never preachy. Drop formal vocabulary. Use "
+              "phrases like 'pretty wild', 'honestly so cool', 'no joke'. "
+              "Keep sentences short and confident. Skip the textbook tone.",
+        "ar": "الزائر مراهق. تحدث مثل أخ أكبر رائع — عفوي ومباشر وليس متكلفًا. "
+              "تجنب المفردات الرسمية. استخدم تعابير حماسية. أبقِ الجمل قصيرة "
+              "وواثقة. تخلَّ عن أسلوب الكتاب المدرسي.",
+        "fr": "Le visiteur est un adolescent. Parle comme un grand frère "
+              "cool — décontracté, punchy, jamais pédant. Évite le vocabulaire "
+              "formel. Utilise des expressions comme 'plutôt dingue', "
+              "'franchement cool'. Phrases courtes et assurées. Oublie le ton "
+              "manuel scolaire.",
     },
     "adult": {
-        # No special instruction — default tone IS the adult tone. Leaving
-        # this empty keeps the prompt clean when the bucket is "adult".
+        # Default tone IS the adult tone. Empty keeps the prompt clean.
         "en": "",
         "ar": "",
         "fr": "",
     },
     "senior": {
-        "en": "The visitor is an older adult. Speak with calm pacing and a "
-              "respectful tone; avoid slang.",
-        "ar": "الزائر شخص مسنّ. تحدث بإيقاع هادئ ولهجة محترمة، وتجنب العامية.",
-        "fr": "Le visiteur est une personne âgée. Parle posément, sur un ton "
-              "respectueux, sans argot.",
+        "en": "The visitor is an older adult. Speak with formal courtesy and "
+              "calm, measured pacing. Use full, complete sentences — no slang, "
+              "no exclamation marks. Address them respectfully (e.g. 'you may "
+              "find it interesting that...'). Slightly longer, more reflective "
+              "phrasing is welcome.",
+        "ar": "الزائر شخص مسنّ. تحدث بأدب رسمي وإيقاع هادئ ومتأنٍ. استخدم جملًا "
+              "كاملة ومحترمة، بلا عامية ولا علامات تعجب. خاطبه باحترام. لا بأس "
+              "بصياغات أطول قليلًا وأكثر تأملًا.",
+        "fr": "Le visiteur est une personne âgée. Parle avec courtoisie "
+              "formelle et un rythme calme et posé. Phrases complètes — pas "
+              "d'argot, pas de points d'exclamation. Adresse-toi avec respect. "
+              "Formulations un peu plus longues et réfléchies bienvenues.",
     },
 }
 
 _MOOD_TONE = {
     "happy": {
-        "en": "The visitor seems happy — match their energy warmly.",
-        "ar": "يبدو الزائر سعيدًا — جاريه بدفء وحماس.",
-        "fr": "Le visiteur a l'air heureux — accompagne son énergie chaleureusement.",
+        "en": "The visitor looks happy and engaged. Match their joy! Be "
+              "enthusiastic. Use exclamation marks. Add a fun side fact or "
+              "playful comment at the end. Make the reply feel celebratory.",
+        "ar": "يبدو الزائر سعيدًا ومتفاعلًا. شاركه بهجته! كن متحمسًا. استخدم "
+              "علامات تعجب. أضف معلومة مرحة أو تعليقًا لطيفًا في النهاية.",
+        "fr": "Le visiteur a l'air heureux et engagé. Partage sa joie ! Sois "
+              "enthousiaste. Utilise des points d'exclamation. Ajoute un fait "
+              "amusant ou un commentaire ludique à la fin.",
     },
     "surprise": {
-        "en": "The visitor seems surprised or curious — feed that curiosity.",
-        "ar": "يبدو الزائر متفاجئًا أو فضوليًا — أشبع فضوله.",
-        "fr": "Le visiteur a l'air surpris ou curieux — nourris cette curiosité.",
+        "en": "The visitor looks surprised or curious — lean into the 'wow' "
+              "factor. Open with something hooky like 'Right?!' or 'I know!'. "
+              "Feed the curiosity with one extra surprising detail.",
+        "ar": "يبدو الزائر متفاجئًا أو فضوليًا — استثمر عنصر الدهشة! ابدأ "
+              "بشيء جذاب مثل 'صحيح؟!' أو 'أعرف!'. أشبع فضوله بتفصيل مدهش إضافي.",
+        "fr": "Le visiteur semble surpris ou curieux — joue sur l'effet "
+              "'waouh'. Ouvre avec quelque chose comme 'Hein, incroyable ?!' "
+              "Nourris cette curiosité avec un détail surprenant de plus.",
     },
     "sad": {
-        "en": "The visitor seems a little down. Be gentle, no exclamation marks. "
-              "You may briefly ask if everything is okay before continuing.",
-        "ar": "يبدو الزائر متضايقًا قليلاً. كن لطيفًا، لا تستخدم علامات تعجب. "
-              "يمكنك أن تسأل باختصار إن كان كل شيء على ما يرام قبل المتابعة.",
-        "fr": "Le visiteur semble un peu triste. Sois doux, pas de points "
-              "d'exclamation. Tu peux brièvement demander si tout va bien avant de continuer.",
+        "en": "The visitor seems a little down. Be gentle and warm. NO "
+              "exclamation marks. Briefly ask 'Is everything alright?' before "
+              "answering. Speak softly, shorter sentences.",
+        "ar": "يبدو الزائر متضايقًا قليلًا. كن لطيفًا ودافئًا. لا تستخدم علامات "
+              "تعجب. اسأل باختصار 'هل كل شيء على ما يرام؟' قبل الإجابة. تحدث "
+              "بهدوء وبجمل أقصر.",
+        "fr": "Le visiteur semble un peu triste. Sois doux et chaleureux. "
+              "AUCUN point d'exclamation. Demande brièvement 'Tout va bien ?' "
+              "avant de répondre. Parle doucement, en phrases courtes.",
     },
     "fear": {
-        "en": "The visitor looks uneasy. Speak calmly and reassuringly, "
-              "shorter sentences.",
-        "ar": "يبدو الزائر قلقًا. تحدث بهدوء وطمأنينة وبجمل قصيرة.",
-        "fr": "Le visiteur semble mal à l'aise. Parle calmement, en phrases "
-              "courtes, sur un ton rassurant.",
+        "en": "The visitor looks uneasy. Speak in a calm, reassuring tone — "
+              "the kind a guide uses to settle a nervous visitor. Short, "
+              "steady sentences. No surprises, no exclamation marks.",
+        "ar": "يبدو الزائر قلقًا. تحدث بنبرة هادئة ومطمئنة — كما يطمئن المرشد "
+              "زائرًا متوترًا. جمل قصيرة وثابتة. بدون مفاجآت أو علامات تعجب.",
+        "fr": "Le visiteur semble mal à l'aise. Parle d'une voix calme et "
+              "rassurante — comme un guide qui apaise un visiteur nerveux. "
+              "Phrases courtes et stables. Pas de surprises ni d'exclamations.",
     },
     "angry": {
-        "en": "The visitor seems frustrated. Stay calm, be concise and helpful, "
-              "no jokes.",
-        "ar": "يبدو الزائر منزعجًا. ابقَ هادئًا، وكن مختصرًا ومفيدًا، بدون مزاح.",
-        "fr": "Le visiteur semble agacé. Reste calme, sois concis et utile, "
-              "pas de plaisanteries.",
+        # Strongest deviation from default. This is the most "demoable" mood.
+        "en": "The visitor looks frustrated or upset. Drop all enthusiasm "
+              "IMMEDIATELY. No exclamation marks. No fun facts. No jokes. "
+              "Open with a brief acknowledgement like 'Of course.' or "
+              "'Certainly.' Then answer in ONE short, factual sentence. "
+              "Get straight to the point. Tone: like a calm, respectful "
+              "concierge defusing a complaint.",
+        "ar": "يبدو الزائر منزعجًا أو متضايقًا. تخلَّ عن أي حماس فورًا. لا علامات "
+              "تعجب. لا معلومات ممتعة. لا مزاح. ابدأ باعتراف قصير مثل 'بالتأكيد.' "
+              "ثم أجب بجملة واحدة قصيرة ومباشرة. النبرة: مثل موظف استقبال هادئ "
+              "ومحترم يهدّئ شكوى.",
+        "fr": "Le visiteur a l'air agacé ou contrarié. Abandonne TOUT "
+              "enthousiasme immédiatement. Aucun point d'exclamation. Aucun "
+              "fait amusant. Aucune blague. Ouvre par une brève reconnaissance "
+              "comme 'Bien sûr.' Puis réponds en UNE seule phrase factuelle. "
+              "Va droit au but. Ton : comme un concierge calme et respectueux "
+              "qui désamorce une plainte.",
     },
     "disgust": {
         # Disgust on FER2013 is the noisiest class — fold to neutral guidance.
