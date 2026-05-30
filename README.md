@@ -10,7 +10,7 @@
   🎓 <em>Graduation Project — Computer Engineering Department</em>
   <br/><br/>
   🌐 <a href="https://thoth.thoth-gem.com"><strong>Try the Live Web App</strong></a> &nbsp;·&nbsp;
-  📄 <a href="https://1drv.ms/p/c/bd8ed2cd16a50bce/IQBYlDNgkJ1pRIw_BMN9P5J8AeVqttAr_z9GDYysugIFq0g?e=kc4d3k">View Graduation Project 1 Final Presentation</a>
+  📄 <a href="docs/project1/THOTH_Grad1_Final_Presentation.pdf">View Graduation Project 1 Final Presentation</a>
 </p>
 
 ---
@@ -62,15 +62,22 @@ THOTH aims to provide visitors with a futuristic museum experience where they ca
 - 🤖 LLM-powered question answering
 - 🌍 Multilingual conversations
 - 🧩 Exhibit-aware contextual responses
+- 🎭 **Tone-adaptive replies** — vision-inferred age + mood reshape THOTH's
+  voice (energetic for kids, formal for elders, calm for frustrated visitors)
 
 ---
 
-## 📷 Computer Vision
+## 📷 Computer Vision — Tone-Adaptive Responses
 
-- 👤 Age recognition system
-- 😀 Emotion / mood recognition
-- 🖼️ Exhibit-aware interaction support
-- 🧠 Future visitor analytics support
+- 👤 Age recognition (ResNet50, 4 buckets: child / teen / adult / senior)
+- 😀 Emotion recognition (EfficientNet-B0, 7-class FER2013)
+- 🧠 **Live LLM tone adaptation** — the inferred age + mood are passed to
+  Gemini as a hidden persona hint, so THOTH speaks differently to a child
+  than to an older adult, or softens its tone when the visitor looks upset
+- 🔒 **Privacy-first** — camera is OFF by default, opt-in per visitor,
+  frames are never stored (only the inferred profile, with a 30s TTL)
+- 🤖 Provider-agnostic — same downstream contract for the webcam path
+  (live now) and the future ROS2 camera bridge
 
 ---
 
@@ -100,11 +107,11 @@ THOTH aims to provide visitors with a futuristic museum experience where they ca
                      │
       ┌──────────────┼──────────────┐
       ▼              ▼              ▼
-┌──────────┐   ┌──────────┐   ┌─────────────┐
-│ 🧠 LLM   │   │ 🗄️ DB    │   │ 🤖 ROS2     │
-│ Gemini   │   │PostgreSQL│   │ Navigation  │
-│ Whisper  │   │Exhibits  │   │ Simulation  │
-└──────────┘   └──────────┘   └─────────────┘
+┌──────────┐ ┌──────────┐ ┌─────────────┐ ┌──────────┐
+│ 🧠 LLM   │ │ 🗄️ DB    │ │ 🤖 ROS2     │ │ 📷 Vision│
+│ Gemini   │ │PostgreSQL│ │ Navigation  │ │ Age+Mood │
+│ Whisper  │ │Exhibits  │ │ Simulation  │ │ PyTorch  │
+└──────────┘ └──────────┘ └─────────────┘ └──────────┘
 ```
 
 ---
@@ -169,7 +176,7 @@ arrows are ROS topics (publisher → subscriber).
 | **Backend**           | FastAPI, Python, Uvicorn                                     |
 | **Database**          | PostgreSQL, SQLAlchemy, Alembic                              |
 | **AI / LLM**          | Google Gemini 2.5 Flash, OpenAI Whisper, ElevenLabs TTS (with edge-tts fallback) |
-| **Vision** (Project 2) | PyTorch (EfficientNet-B0), TensorFlow (SSR-Net), OpenCV     |
+| **Vision**            | PyTorch (ResNet50 age, EfficientNet-B0 emotion), OpenCV Haar cascade for face crop, integrated end-to-end with the LLM |
 | **Simulation / Nav**  | ROS 2 Jazzy, Gazebo Harmonic, Nav2, rclpy bridge             |
 | **Deployment**        | Cloudflare Tunnel + custom domain (`thoth-gem.com`) for the live public URL, systemd / Windows-service auto-restart |
 | **Future**            | Docker, AWS for cloud-hosted backend                         |
@@ -216,7 +223,8 @@ THOTH/
 │       └── windows/
 │       └── ubuntu/
 │
-├── image-processing/    # Vision team — age + emotion notebooks (Project 2)
+├── image-processing/    # Vision team — age + emotion training notebooks
+│                        #   (trained weights now loaded by the web-app backend)
 ├── simulation/          # ROS 2 + Gazebo navigation stack (sim team)
 ├── hardware/            # Hardware design + prototype docs
 ├── docs/                # Presentations, reports, architecture diagrams
@@ -235,6 +243,8 @@ THOTH/
 - Multilingual architecture (EN / AR / FR)
 - Interactive museum map
 - AI chatbot interface
+- Live webcam-driven tone adaptation (vision → LLM persona hint)
+- Privacy-first opt-in camera UI on the chat page
 - Backend API architecture
 - PostgreSQL database structure
 - Simulation-ready architecture
@@ -258,7 +268,8 @@ The web application acts as the central interaction layer between:
 - 🖼️ Exhibit Details (story, image, Navigate-Here, Ask THOTH)
 - 🗺️ Interactive Museum Map (live robot dot + clickable markers)
 - 🚶 Start Tour — preset and custom multi-stop tours with live narration
-- 🎤 Ask THOTH — multilingual voice + text chat with TTS playback
+- 🎤 Ask THOTH — multilingual voice + text chat with TTS playback,
+  optional webcam-driven tone adaptation
 
 ---
 
